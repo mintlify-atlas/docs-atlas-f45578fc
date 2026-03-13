@@ -1,0 +1,759 @@
+---
+title: Timeline Items
+description: Flexible building blocks that compose conversation timelines—messages, events, tool invocations, and more.
+---
+
+## What are Timeline Items?
+
+**Timeline items** are the fundamental building blocks of [conversations](/concepts/conversations) in Cossistant. Unlike traditional chat systems that only support messages, Cossistant uses a flexible timeline architecture that can represent multiple types of content and activities.
+
+This design enables:
+
+- **Rich conversations**: Mix messages, system events, tool calls, and interactive UI
+- **Complete audit trail**: Every action and state change is tracked
+- **Extensibility**: New item types can be added without breaking existing data
+- **AI SDK compatibility**: Native support for Vercel AI SDK message parts
+
+## Why Timeline Items?
+
+Traditional chat systems are message-only:
+
+```typescript
+// Traditional approach - messages only
+const messages = [
+  { id: 1, text: "Hello", from: "user" },
+  { id: 2, text: "Hi there!", from: "agent" },
+];
+```
+
+Cossistant's timeline architecture is event-driven:
+
+```typescript
+// Cossistant timeline - messages + events + tools
+const timeline = [
+  { type: "message", text: "Hello", from: "user" },
+  { type: "event", eventType: "participant_joined", actor: "agent_sarah" },
+  { type: "message", text: "Hi there!", from: "agent" },
+  { type: "tool", toolName: "lookup_order", result: {...} },
+  { type: "event", eventType: "resolved", actor: "agent_sarah" },
+];
+```
+
+This provides:
+- **Context**: See when agents joined, when status changed
+- **Transparency**: Complete history of who did what and when
+- **Flexibility**: Support AI tool calls, interactive UI, custom actions
+
+## Data Model
+
+Here's the timeline item schema from the database:
+
+```typescript title="apps/api/src/db/schema/conversation.ts"
+export const conversationTimelineItem = pgTable(
+  "conversation_timeline_item",
+  {
+    id: ulidPrimaryKey("id"),
+    conversationId: nanoidReference("conversation_id"),
+    organizationId: ulidReference("organization_id"),
+    
+    // Visibility control
+    visibility: itemVisibilityEnum("visibility")
+      .default(TimelineItemVisibility.PUBLIC)
+      .notNull(),
+    
+    // Item type and content
+    type: conversationTimelineTypeEnum("type").notNull(),
+    text: text("text"),
+    parts: jsonb("parts").default(sql`'[]'::jsonb`).notNull(),
+    
+    // Creator (one of these is set)
+    userId: ulidNullableReference("user_id"),
+    visitorId: ulidNullableReference("visitor_id"),
+    aiAgentId: ulidNullableReference("ai_agent_id"),
+    
+    createdAt: timestamp("created_at").notNull(),
+    deletedAt: timestamp("deleted_at"),
+  }
+);
+```
+
+### TypeScript Schema
+
+```typescript title="packages/types/src/api/timeline-item.ts"
+export const timelineItemSchema = z.object({
+  id: z.string().optional(),
+  conversationId: z.string(),
+  organizationId: z.string(),
+  visibility: z.enum(["public", "private"]),
+  type: z.enum(["message", "event", "identification", "tool"]),
+  text: z.string().nullable(),
+  tool: z.string().nullable().optional(),
+  parts: timelineItemPartsSchema,
+  userId: z.string().nullable(),
+  aiAgentId: z.string().nullable(),
+  visitorId: z.string().nullable(),
+  createdAt: z.string(),
+  deletedAt: z.string().nullable().optional(),
+});
+
+export type TimelineItem = z.infer<typeof timelineItemSchema>;
+```
+
+## Timeline Item Types
+
+### MESSAGE: Text and Media
+
+Messages are the most common timeline item type, representing communication from visitors, agents, or AI.
+
+```typescript
+{
+  type: "message",
+  visibility: "public",
+  parts: [
+    { 
+      type: "text", 
+      text: "How do I reset my password?" 
+    }
+  ],
+  visitorId: "vis_123",
+  userId: null,
+  aiAgentId: null,
+  createdAt: "2024-03-13T10:30:00Z"
+}
+```
+
+### EVENT: System Activities
+
+Events track conversation state changes and system activities.
+
+```typescript
+{
+  type: "event",
+  visibility: "public",
+  parts: [
+    {
+      type: "event",
+      eventType: "participant_joined",
+      actorUserId: "user_sarah",
+      targetUserId: null,
+      message: "Sarah joined the conversation"
+    }
+  ],
+  userId: "user_sarah",
+  createdAt: "2024-03-13T10:32:00Z"
+}
+```
+
+**Event Types:**
+
+```typescript title="packages/types/src/enums.ts"
+export const ConversationEventType = {
+  ASSIGNED: "assigned",
+  UNASSIGNED: "unassigned",
+  PARTICIPANT_REQUESTED: "participant_requested",
+  PARTICIPANT_JOINED: "participant_joined",
+  PARTICIPANT_LEFT: "participant_left",
+  STATUS_CHANGED: "status_changed",
+  PRIORITY_CHANGED: "priority_changed",
+  TAG_ADDED: "tag_added",
+  TAG_REMOVED: "tag_removed",
+  RESOLVED: "resolved",
+  REOPENED: "reopened",
+  VISITOR_BLOCKED: "visitor_blocked",
+  VISITOR_UNBLOCKED: "visitor_unblocked",
+  VISITOR_IDENTIFIED: "visitor_identified",
+  AI_ESCALATED: "ai_escalated",
+  AI_PAUSED: "ai_paused",
+  AI_RESUMED: "ai_resumed",
+} as const;
+```
+
+### TOOL: AI Tool Invocations
+
+Tool items represent AI agent tool calls and their results.
+
+```typescript
+{
+  type: "tool",
+  visibility: "private", // Usually internal
+  parts: [
+    {
+      type: "tool-lookup_order",
+      toolCallId: "call_abc123",
+      toolName: "lookup_order",
+      input: { orderId: "ord_789" },
+      output: { 
+        status: "shipped", 
+        tracking: "1Z999AA10123456784" 
+      },
+      state: "result"
+    }
+  ],
+  aiAgentId: "ai_agent_123",
+  createdAt: "2024-03-13T10:33:00Z"
+}
+```
+
+### IDENTIFICATION: Contact Creation
+
+Identification items track when anonymous visitors become identified contacts.
+
+```typescript
+{
+  type: "identification",
+  visibility: "public",
+  parts: [
+    {
+      type: "event",
+      eventType: "visitor_identified",
+      message: "John Doe has been identified"
+    }
+  ],
+  visitorId: "vis_123",
+  createdAt: "2024-03-13T10:35:00Z"
+}
+```
+
+## Timeline Parts (AI SDK Compatible)
+
+Timeline items contain an array of **parts** that follow the [Vercel AI SDK v6 message parts format](https://sdk.vercel.ai/).
+
+### Text Parts
+
+```typescript title="packages/types/src/api/timeline-item.ts"
+const textPartSchema = z.object({
+  type: z.literal("text"),
+  text: z.string(),
+  state: z.enum(["streaming", "done"]).optional(),
+});
+
+export type TextPart = z.infer<typeof textPartSchema>;
+```
+
+Example:
+
+```typescript
+{
+  type: "text",
+  text: "Hello! How can I help you today?",
+  state: "done"
+}
+```
+
+### Image Parts
+
+```typescript
+const imagePartSchema = z.object({
+  type: z.literal("image"),
+  url: z.string(),
+  mediaType: z.string(),
+  filename: z.string().optional(),
+  size: z.number().optional(),
+  width: z.number().optional(),
+  height: z.number().optional(),
+});
+
+export type ImagePart = z.infer<typeof imagePartSchema>;
+```
+
+Example:
+
+```typescript
+{
+  type: "image",
+  url: "https://cdn.example.com/screenshot.png",
+  mediaType: "image/png",
+  filename: "error-screenshot.png",
+  size: 245678,
+  width: 1920,
+  height: 1080
+}
+```
+
+### File Parts
+
+```typescript
+const filePartSchema = z.object({
+  type: z.literal("file"),
+  url: z.string(),
+  mediaType: z.string(),
+  filename: z.string().optional(),
+  size: z.number().optional(),
+});
+
+export type FilePart = z.infer<typeof filePartSchema>;
+```
+
+Example:
+
+```typescript
+{
+  type: "file",
+  url: "https://cdn.example.com/invoice.pdf",
+  mediaType: "application/pdf",
+  filename: "invoice-march-2024.pdf",
+  size: 156789
+}
+```
+
+### Tool Parts
+
+```typescript
+const toolPartSchema = z.object({
+  type: z.string().regex(/^tool-.+$/), // e.g., "tool-lookup_order"
+  toolCallId: z.string(),
+  toolName: z.string(),
+  input: z.record(z.string(), z.unknown()),
+  output: z.unknown().optional(),
+  state: z.enum(["partial", "result", "error"]),
+  errorText: z.string().optional(),
+  callProviderMetadata: cossistantProviderMetadataSchema,
+  providerMetadata: cossistantProviderMetadataSchema,
+});
+
+export type ToolPart = z.infer<typeof toolPartSchema>;
+```
+
+Example:
+
+```typescript
+{
+  type: "tool-lookup_order",
+  toolCallId: "call_abc123",
+  toolName: "lookup_order",
+  input: { 
+    orderId: "ord_789" 
+  },
+  output: {
+    status: "shipped",
+    tracking: "1Z999AA10123456784",
+    estimatedDelivery: "2024-03-15"
+  },
+  state: "result",
+  callProviderMetadata: {
+    cossistant: {
+      toolTimeline: {
+        logType: "log",
+        triggerMessageId: "msg_xyz",
+        workflowRunId: "run_123"
+      }
+    }
+  }
+}
+```
+
+### Reasoning Parts
+
+For AI chain-of-thought reasoning:
+
+```typescript
+const reasoningPartSchema = z.object({
+  type: z.literal("reasoning"),
+  text: z.string(),
+  state: z.enum(["streaming", "done"]).optional(),
+  providerMetadata: cossistantProviderMetadataSchema,
+});
+
+export type ReasoningPart = z.infer<typeof reasoningPartSchema>;
+```
+
+Example:
+
+```typescript
+{
+  type: "reasoning",
+  text: "The user is asking about order status. I should look up their 
+most recent order first before responding.",
+  state: "done",
+  providerMetadata: {
+    cossistant: {
+      visibility: "private" // Hidden from visitor
+    }
+  }
+}
+```
+
+### Source Parts (Citations)
+
+```typescript
+const sourceUrlPartSchema = z.object({
+  type: z.literal("source-url"),
+  sourceId: z.string(),
+  url: z.string().url(),
+  title: z.string().optional(),
+  providerMetadata: cossistantProviderMetadataSchema,
+});
+
+const sourceDocumentPartSchema = z.object({
+  type: z.literal("source-document"),
+  sourceId: z.string(),
+  mediaType: z.string(),
+  title: z.string(),
+  filename: z.string().optional(),
+  providerMetadata: cossistantProviderMetadataSchema,
+});
+```
+
+Example:
+
+```typescript
+{
+  type: "source-url",
+  sourceId: "src_1",
+  url: "https://docs.example.com/password-reset",
+  title: "Password Reset Guide"
+}
+```
+
+## Visibility Control
+
+Timeline items support two visibility levels:
+
+### Public Items
+
+Visible to both visitors and agents:
+
+```typescript
+{
+  visibility: "public",
+  type: "message",
+  text: "Your order has shipped!",
+  // Visible to everyone
+}
+```
+
+### Private Items
+
+Internal agent notes, hidden from visitors:
+
+```typescript
+{
+  visibility: "private",
+  type: "message",
+  text: "Customer seems frustrated - prioritize this conversation",
+  // Only visible to team members
+}
+```
+
+<Info>
+AI agents can create private timeline items for internal notes and tool invocations.
+</Info>
+
+## Cossistant Provider Metadata
+
+Extend AI SDK parts with Cossistant-specific metadata:
+
+```typescript title="packages/types/src/api/timeline-item.ts"
+const cossistantProviderMetadataSchema = z.object({
+  cossistant: z.object({
+    visibility: z.enum(["public", "private"]).optional(),
+    progressMessage: z.string().optional(),
+    knowledgeId: z.string().optional(),
+    toolTimeline: z.object({
+      logType: z.enum(["customer_facing", "log", "decision"]),
+      triggerMessageId: z.string(),
+      workflowRunId: z.string(),
+      triggerVisibility: z.enum(["public", "private"]).optional(),
+    }).optional(),
+  }).optional(),
+}).passthrough().optional();
+```
+
+Example usage:
+
+```typescript
+{
+  type: "tool-send_email",
+  toolName: "send_email",
+  input: { to: "customer@example.com" },
+  state: "partial",
+  callProviderMetadata: {
+    cossistant: {
+      progressMessage: "Sending confirmation email...",
+      toolTimeline: {
+        logType: "customer_facing",
+        triggerMessageId: "msg_abc",
+        workflowRunId: "run_xyz"
+      }
+    }
+  }
+}
+```
+
+## Creating Timeline Items
+
+### Via REST API
+
+```typescript
+// Send a message
+const response = await fetch(
+  `/api/conversations/${conversationId}/timeline-items`,
+  {
+    method: 'POST',
+    headers: {
+      'X-Website-Id': websiteId,
+      'X-Visitor-Id': visitorId,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      item: {
+        type: 'message',
+        text: 'I need help with my order',
+        parts: [
+          { 
+            type: 'text', 
+            text: 'I need help with my order' 
+          }
+        ],
+        visibility: 'public',
+      },
+    }),
+  }
+);
+
+const { item } = await response.json();
+```
+
+### With Multiple Parts
+
+```typescript
+// Send message with text and image
+const response = await fetch(
+  `/api/conversations/${conversationId}/timeline-items`,
+  {
+    method: 'POST',
+    body: JSON.stringify({
+      item: {
+        type: 'message',
+        text: 'Here\'s a screenshot of the error',
+        parts: [
+          { 
+            type: 'text', 
+            text: 'Here\'s a screenshot of the error' 
+          },
+          {
+            type: 'image',
+            url: 'https://cdn.example.com/screenshot.png',
+            mediaType: 'image/png',
+            filename: 'error.png',
+            size: 245678,
+          }
+        ],
+        visibility: 'public',
+      },
+    }),
+  }
+);
+```
+
+## Fetching Timeline Items
+
+```typescript
+// Get timeline with pagination
+const response = await fetch(
+  `/api/conversations/${conversationId}/timeline-items?limit=50`,
+  {
+    headers: {
+      'X-Website-Id': websiteId,
+      'X-Visitor-Id': visitorId,
+    },
+  }
+);
+
+const { items, nextCursor, hasNextPage } = await response.json();
+
+// Load more with cursor
+if (hasNextPage) {
+  const nextResponse = await fetch(
+    `/api/conversations/${conversationId}/timeline-items?cursor=${nextCursor}`,
+  );
+}
+```
+
+## Real-World Example
+
+Here's a complete conversation timeline:
+
+```typescript
+const timeline = [
+  // 1. Visitor sends initial message
+  {
+    type: "message",
+    visibility: "public",
+    parts: [{ type: "text", text: "I can't access my account" }],
+    visitorId: "vis_abc",
+    createdAt: "2024-03-13T10:00:00Z",
+  },
+  
+  // 2. AI agent joins and analyzes
+  {
+    type: "event",
+    visibility: "public",
+    parts: [{
+      type: "event",
+      eventType: "participant_joined",
+      actorAiAgentId: "ai_123",
+      message: "AI Assistant joined",
+    }],
+    aiAgentId: "ai_123",
+    createdAt: "2024-03-13T10:00:01Z",
+  },
+  
+  // 3. AI agent looks up user account (private)
+  {
+    type: "tool",
+    visibility: "private",
+    parts: [{
+      type: "tool-lookup_account",
+      toolCallId: "call_1",
+      toolName: "lookup_account",
+      input: { email: "user@example.com" },
+      output: { locked: true, reason: "too_many_failed_attempts" },
+      state: "result",
+    }],
+    aiAgentId: "ai_123",
+    createdAt: "2024-03-13T10:00:02Z",
+  },
+  
+  // 4. AI agent responds
+  {
+    type: "message",
+    visibility: "public",
+    parts: [{
+      type: "text",
+      text: "I see your account is locked due to multiple failed login attempts. I can help you reset your password.",
+    }],
+    aiAgentId: "ai_123",
+    createdAt: "2024-03-13T10:00:03Z",
+  },
+  
+  // 5. AI escalates to human (account unlock requires verification)
+  {
+    type: "event",
+    visibility: "private",
+    parts: [{
+      type: "event",
+      eventType: "ai_escalated",
+      actorAiAgentId: "ai_123",
+      message: "Escalated: Account unlock requires identity verification",
+    }],
+    aiAgentId: "ai_123",
+    createdAt: "2024-03-13T10:00:04Z",
+  },
+  
+  // 6. Human agent joins
+  {
+    type: "event",
+    visibility: "public",
+    parts: [{
+      type: "event",
+      eventType: "participant_joined",
+      actorUserId: "user_sarah",
+      message: "Sarah joined to help",
+    }],
+    userId: "user_sarah",
+    createdAt: "2024-03-13T10:05:00Z",
+  },
+  
+  // 7. Sarah resolves the issue
+  {
+    type: "message",
+    visibility: "public",
+    parts: [{
+      type: "text",
+      text: "I've verified your identity and unlocked your account. You should be able to log in now.",
+    }],
+    userId: "user_sarah",
+    createdAt: "2024-03-13T10:10:00Z",
+  },
+  
+  // 8. Conversation resolved
+  {
+    type: "event",
+    visibility: "public",
+    parts: [{
+      type: "event",
+      eventType: "resolved",
+      actorUserId: "user_sarah",
+      message: "Sarah marked this conversation as resolved",
+    }],
+    userId: "user_sarah",
+    createdAt: "2024-03-13T10:10:30Z",
+  },
+];
+```
+
+## Best Practices
+
+### Use Appropriate Visibility
+
+```typescript
+// ✅ Good - public customer-facing message
+{
+  visibility: "public",
+  type: "message",
+  text: "Your order has shipped!"
+}
+
+// ✅ Good - private internal note
+{
+  visibility: "private",
+  type: "message",
+  text: "Customer is a VIP - expedite shipping"
+}
+
+// ❌ Bad - sensitive info in public message
+{
+  visibility: "public",
+  type: "message",
+  text: "Customer credit card ends in 1234" // Never expose PII!
+}
+```
+
+### Include Rich Context
+
+```typescript
+// ✅ Good - multiple parts for context
+{
+  type: "message",
+  text: "Here's the error I'm seeing",
+  parts: [
+    { type: "text", text: "Here's the error I'm seeing" },
+    { type: "image", url: "...", mediaType: "image/png" },
+    { type: "text", text: "This happens when I click 'Submit Order'" },
+  ]
+}
+
+// ❌ Bad - missing context
+{
+  type: "message",
+  text: "Error",
+  parts: [{ type: "text", text: "Error" }]
+}
+```
+
+### Leverage Tool Timeline Metadata
+
+```typescript
+// ✅ Good - track tool invocation context
+{
+  type: "tool-send_email",
+  callProviderMetadata: {
+    cossistant: {
+      toolTimeline: {
+        logType: "customer_facing",
+        triggerMessageId: "msg_abc",
+        workflowRunId: "run_xyz",
+      },
+      progressMessage: "Sending confirmation email..."
+    }
+  }
+}
+```
+
+## Learn More
+
+- [Conversations](/concepts/conversations): Chat threads containing timeline items
+- [AI Agents](/concepts/ai-agents): AI agents that create timeline items
+- [Vercel AI SDK](https://sdk.vercel.ai/): Compatible message parts format
+- [Timeline Items API](/api/messages): REST API reference

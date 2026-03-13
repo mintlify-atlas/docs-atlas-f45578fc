@@ -1,0 +1,401 @@
+---
+title: Text & Localization
+description: Customize widget text and add translations with type-safe internationalization.
+---
+
+The Cossistant support widget includes a fully typed translation system with built-in support for multiple languages and dynamic text formatting.
+
+## Built-in Locales
+
+The widget ships with three complete translations:
+
+- **English** (`en`) - Default
+- **Spanish** (`es`)
+- **French** (`fr`)
+
+```tsx
+import { Support } from '@cossistant/react';
+
+// Use Spanish
+<Support locale="es" />
+
+// Use French
+<Support locale="fr" />
+```
+
+## Translation Keys
+
+All text in the widget is controlled by translation keys. Every key is fully typed with autocomplete support.
+
+### Common Keys
+
+<Tabs>
+  <Tab title="Actions">
+    | Key | English | Spanish | French |
+    |-----|---------|---------|--------|
+    | `common.actions.askQuestion` | "Ask us a question" | "Haznos una pregunta" | "Posez-nous une question" |
+    | `common.actions.attachFiles` | "Attach files" | "Adjuntar archivos" | "Joindre des fichiers" |
+    | `common.actions.removeFile` | "Remove {fileName}" | "Eliminar {fileName}" | "Supprimer {fileName}" |
+  </Tab>
+  <Tab title="Labels">
+    | Key | English | Spanish | French |
+    |-----|---------|---------|--------|
+    | `common.labels.aiAgentIndicator` | "AI agent" | "Agente IA" | "Agent IA" |
+    | `common.labels.supportOnline` | "Support online" | "Soporte en línea" | "Support en ligne" |
+  </Tab>
+  <Tab title="Fallbacks">
+    | Key | English | Spanish | French |
+    |-----|---------|---------|--------|
+    | `common.fallbacks.aiAssistant` | "AI assistant" | "Asistente de IA" | "Assistant IA" |
+    | `common.fallbacks.supportTeam` | "Support team" | "Equipo de soporte" | "Équipe support" |
+    | `common.fallbacks.unknown` | "Unknown" | "Desconocido" | "Inconnu" |
+    | `common.fallbacks.you` | "You" | "Tú" | "Vous" |
+  </Tab>
+</Tabs>
+
+### Page Keys
+
+<Tabs>
+  <Tab title="Home Page">
+    | Key | Description |
+    |-----|-------------|
+    | `page.home.greeting` | Dynamic greeting based on time of day and visitor name |
+    | `page.home.tagline` | Support tagline with website name |
+    | `page.home.history.more` | "+ N more conversations" text |
+  </Tab>
+  <Tab title="Conversation">
+    | Key | Description |
+    |-----|-------------|
+    | `component.conversationPage.closedMessage` | Message shown when conversation is closed |
+    | `component.conversationPage.spamMessage` | Message shown when marked as spam |
+    | `component.conversationPage.ratingPrompt` | "How did we do?" prompt |
+    | `component.conversationPage.ratingThanks` | Thank you message after rating |
+  </Tab>
+  <Tab title="History">
+    | Key | Description |
+    |-----|-------------|
+    | `page.conversationHistory.title` | "Conversation history" title |
+    | `page.conversationHistory.showMore` | "+N more" text |
+  </Tab>
+</Tabs>
+
+### Component Keys
+
+<Tabs>
+  <Tab title="Input">
+    | Key | Description |
+    |-----|-------------|
+    | `component.multimodalInput.placeholder` | "Type your message..." |
+    | `component.multimodalInput.remove` | Remove file button text |
+  </Tab>
+  <Tab title="Navigation">
+    | Key | Description |
+    |-----|-------------|
+    | `component.navigation.home` | "Home" |
+    | `component.navigation.articles` | "Articles" |
+  </Tab>
+  <Tab title="Events">
+    | Key | Description |
+    |-----|-------------|
+    | `component.conversationEvent.assigned` | "{name} assigned the conversation" |
+    | `component.conversationEvent.resolved` | "{name} resolved the conversation" |
+    | `component.conversationEvent.participantJoined` | "{name} joined the conversation" |
+  </Tab>
+</Tabs>
+
+## Overriding Text
+
+Customize any text using the `content` prop:
+
+<Tabs>
+  <Tab title="Simple String">
+    ```tsx
+    <Support
+      content={{
+        "common.actions.askQuestion": "Contact us",
+        "page.home.tagline": "Get help 24/7"
+      }}
+    />
+    ```
+  </Tab>
+  <Tab title="Per-Locale">
+    ```tsx
+    <Support
+      locale="es"
+      content={{
+        "common.actions.askQuestion": {
+          en: "Contact us",
+          es: "Contáctanos",
+          fr: "Contactez-nous"
+        }
+      }}
+    />
+    ```
+  </Tab>
+  <Tab title="Dynamic Function">
+    ```tsx
+    <Support
+      content={{
+        "page.home.greeting": ({ variables, context, utils }) => {
+          const period = utils.timeOfDay();
+          const name = variables?.visitorName ?? context.visitor?.contact?.name;
+          
+          if (period.token === "evening") {
+            return `Good evening${name ? ` ${name}` : ""} 👋`;
+          }
+          
+          return `Hey${name ? ` ${name}` : ""}, how can we help?`;
+        }
+      }}
+    />
+    ```
+  </Tab>
+</Tabs>
+
+## Using Text in Custom Components
+
+Access translations in your custom pages and components:
+
+<Tabs>
+  <Tab title="Text Component">
+    ```tsx
+    import { Text } from '@cossistant/react/support';
+    
+    function CustomPage() {
+      return (
+        <div>
+          <h1>
+            <Text textKey="page.home.greeting" />
+          </h1>
+          <button>
+            <Text textKey="common.actions.askQuestion" />
+          </button>
+        </div>
+      );
+    }
+    ```
+  </Tab>
+  <Tab title="useSupportText Hook">
+    ```tsx
+    import { useSupportText } from '@cossistant/react/support';
+    
+    function CustomButton() {
+      const text = useSupportText();
+      
+      return (
+        <button title={text("common.actions.askQuestion")}>
+          {text("page.home.history.more", { count: 5 })}
+        </button>
+      );
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Translation Functions
+
+Keys can be functions with access to context and utilities:
+
+```tsx
+<Support
+  content={{
+    "page.home.greeting": ({ variables, context, utils }) => {
+      // Available utilities
+      const timeOfDay = utils.timeOfDay(); // { token: 'morning' | 'afternoon' | 'evening', label: string }
+      const formatted = utils.formatNumber(1234); // "1,234"
+      const plural = utils.pluralize(5, { one: "item", other: "items" }); // "items"
+      const title = utils.titleCase("hello world"); // "Hello World"
+      
+      // Available context
+      const websiteName = context.website?.name;
+      const visitorName = context.visitor?.contact?.name;
+      const humanAgents = context.humanAgents; // Array of available agents
+      const aiAgents = context.aiAgents; // Array of AI agents
+      
+      // Variables passed to this specific key
+      const name = variables?.visitorName;
+      
+      return `Hello ${name || visitorName}!`;
+    }
+  }}
+/>
+```
+
+### Available Utilities
+
+<Tabs>
+  <Tab title="formatNumber">
+    Format numbers with locale-aware formatting:
+    
+    ```tsx
+    utils.formatNumber(1234); // "1,234" (en)
+    utils.formatNumber(1234.56, { maximumFractionDigits: 2 }); // "1,234.56"
+    ```
+  </Tab>
+  <Tab title="pluralize">
+    Select singular or plural form based on count:
+    
+    ```tsx
+    utils.pluralize(1, { one: "message", other: "messages" }); // "message"
+    utils.pluralize(5, { one: "message", other: "messages" }); // "messages"
+    ```
+  </Tab>
+  <Tab title="titleCase">
+    Convert text to title case:
+    
+    ```tsx
+    utils.titleCase("hello world"); // "Hello World"
+    utils.titleCase("SUPPORT TEAM"); // "Support Team"
+    ```
+  </Tab>
+  <Tab title="timeOfDay">
+    Get current time period:
+    
+    ```tsx
+    const period = utils.timeOfDay();
+    // { token: 'morning' | 'afternoon' | 'evening', label: 'Morning' }
+    
+    const greeting = {
+      morning: "Good morning",
+      afternoon: "Good afternoon",
+      evening: "Good evening"
+    }[period.token];
+    ```
+  </Tab>
+</Tabs>
+
+## Adding a New Language
+
+Add support for additional locales:
+
+<Tabs>
+  <Tab title="1. Declare Locale">
+    Extend the locale type in your app:
+    
+    ```typescript
+    // types/cossistant.d.ts
+    import '@cossistant/react/support';
+    
+    declare module '@cossistant/react/support' {
+      export type SupportLocale = 'en' | 'es' | 'fr' | 'de' | 'ja';
+    }
+    ```
+  </Tab>
+  <Tab title="2. Provide Translations">
+    Supply translations for all required keys:
+    
+    ```tsx
+    // translations/de.ts
+    export const germanTranslations = {
+      "common.actions.askQuestion": "Stellen Sie uns eine Frage",
+      "common.actions.attachFiles": "Dateien anhängen",
+      "page.home.greeting": ({ variables, utils }) => {
+        const period = utils.timeOfDay();
+        const greetings = {
+          morning: "Guten Morgen",
+          afternoon: "Guten Tag",
+          evening: "Guten Abend"
+        };
+        return greetings[period.token];
+      },
+      // ... all other keys
+    };
+    ```
+  </Tab>
+  <Tab title="3. Use Custom Locale">
+    ```tsx
+    import { germanTranslations } from './translations/de';
+    
+    <Support
+      locale="de"
+      content={germanTranslations}
+    />
+    ```
+  </Tab>
+</Tabs>
+
+## Complete Key Reference
+
+All available translation keys are defined in the source:
+
+```typescript
+// From keys.ts
+export const supportTextDefinitions = {
+  "common.actions.askQuestion": { variables: undefined },
+  "common.actions.attachFiles": { variables: undefined },
+  "common.actions.removeFile": { variables: { fileName: string } },
+  "common.brand.watermark": { variables: undefined },
+  "common.fallbacks.aiAssistant": { variables: undefined },
+  "common.fallbacks.cossistant": { variables: undefined },
+  "common.fallbacks.someone": { variables: undefined },
+  "common.fallbacks.supportTeam": { variables: undefined },
+  "common.fallbacks.unknown": { variables: undefined },
+  "common.fallbacks.you": { variables: undefined },
+  "common.labels.aiAgentIndicator": { variables: undefined },
+  "common.labels.supportOnline": { variables: undefined },
+  // ... see source for complete list
+};
+```
+
+<Accordion title="View all translation keys">
+  See the complete list of translation keys in the source code:
+  - `packages/react/src/support/text/locales/keys.ts` - Key definitions
+  - `packages/react/src/support/text/locales/en.tsx` - English translations
+  - `packages/react/src/support/text/locales/es.tsx` - Spanish translations
+  - `packages/react/src/support/text/locales/fr.tsx` - French translations
+</Accordion>
+
+## Debugging
+
+Every rendered text element includes a `data-key-name` attribute for easy debugging:
+
+```html
+<span data-key-name="common.actions.askQuestion">
+  Ask us a question
+</span>
+```
+
+Inspect elements in DevTools to discover their translation keys.
+
+## Type Safety
+
+The translation system is fully typed:
+
+```tsx
+// ✅ Valid - key exists
+text("common.actions.askQuestion");
+
+// ✅ Valid - with required variables
+text("page.home.history.more", { count: 5 });
+
+// ❌ TypeScript error - key doesn't exist
+text("invalid.key");
+
+// ❌ TypeScript error - missing required variable
+text("page.home.history.more");
+```
+
+## Best Practices
+
+<Accordion title="Use functions for dynamic content">
+  When text needs to change based on context, use function-based translations:
+  
+  ```tsx
+  "page.home.greeting": ({ context, utils }) => {
+    const hour = new Date().getHours();
+    const name = context.visitor?.contact?.name;
+    
+    if (hour < 12) return `Good morning${name ? ` ${name}` : ""}`;
+    if (hour < 18) return `Good afternoon${name ? ` ${name}` : ""}`;
+    return `Good evening${name ? ` ${name}` : ""}`;
+  }
+  ```
+</Accordion>
+
+<Accordion title="Keep fallbacks consistent">
+  Ensure fallback text makes sense in all contexts where it might appear.
+</Accordion>
+
+<Accordion title="Test all locales">
+  When overriding keys, test with different locales to ensure text displays correctly.
+</Accordion>

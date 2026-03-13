@@ -1,0 +1,439 @@
+---
+title: Conversations
+description: Real-time chat threads that connect visitors with your support team and AI agents.
+---
+
+## What are Conversations?
+
+A **conversation** is a threaded chat session between a [visitor](/concepts/contacts) (or [contact](/concepts/contacts)) and your support team. Each conversation contains a timeline of [timeline items](/concepts/timeline-items)—messages, events, tool invocations, and system activities—that provide a complete history of the interaction.
+
+Conversations are the central organizing unit in Cossistant, bringing together visitors, agents (human and AI), and contextual data into a single, real-time thread.
+
+## Why Conversations Matter
+
+Conversations provide:
+
+- **Unified context**: All messages, metadata, and actions in one place
+- **Real-time collaboration**: Human and AI agents working together seamlessly
+- **Complete audit trail**: Every action, decision, and state change is tracked
+- **Cross-device continuity**: For identified contacts, conversations persist across devices
+- **Smart routing**: Automatic assignment, escalation, and categorization
+
+## Data Model
+
+Here's the core conversation schema from the database:
+
+```typescript title="apps/api/src/db/schema/conversation.ts"
+export const conversation = pgTable(
+  "conversation",
+  {
+    id: nanoidPrimaryKey("id"),
+    status: conversationStatusEnum("status")
+      .default(ConversationStatus.OPEN)
+      .notNull(),
+    priority: conversationPriorityEnum("priority")
+      .default(ConversationPriority.NORMAL)
+      .notNull(),
+    organizationId: ulidReference("organization_id"),
+    visitorId: ulidReference("visitor_id"),
+    websiteId: ulidReference("website_id"),
+    
+    // Sentiment analysis
+    sentiment: conversationSentimentEnum("sentiment"),
+    sentimentConfidence: real("sentiment_confidence"),
+    
+    // Conversation metadata
+    channel: text("channel").notNull().default("widget"),
+    title: text("title"),
+    titleSource: conversationTitleSourceEnum("title_source"),
+    
+    // Timing metrics
+    resolutionTime: integer("resolution_time"), // in seconds
+    startedAt: timestamp("started_at"),
+    firstResponseAt: timestamp("first_response_at"),
+    resolvedAt: timestamp("resolved_at"),
+    
+    // Last message tracking
+    lastMessageAt: timestamp("last_message_at"),
+    lastMessageBy: ulidNullableReference("last_message_by_id"),
+    
+    // Resolution tracking
+    resolvedByUserId: ulidNullableReference("resolved_by_user_id"),
+    resolvedByAiAgentId: ulidNullableReference("resolved_by_ai_agent_id"),
+    
+    // AI Agent escalation
+    escalatedAt: timestamp("escalated_at"),
+    escalatedByAiAgentId: ulidNullableReference("escalated_by_ai_agent_id"),
+    escalationReason: text("escalation_reason"),
+    escalationHandledAt: timestamp("escalation_handled_at"),
+    escalationHandledByUserId: ulidNullableReference("escalation_handled_by_user_id"),
+    
+    // AI pause control
+    aiPausedUntil: timestamp("ai_paused_until"),
+    
+    // Visitor feedback
+    visitorRating: integer("visitor_rating"), // 1-5 scale
+    visitorRatingAt: timestamp("visitor_rating_at"),
+    
+    createdAt: timestamp("created_at").notNull(),
+    updatedAt: timestamp("updated_at").notNull(),
+  }
+);
+```
+
+### TypeScript Types
+
+The conversation response type from the API:
+
+```typescript title="packages/types/src/api/conversation.ts"
+export const conversationSchema = z.object({
+  id: z.string(),
+  status: z.enum(["open", "resolved", "spam"]),
+  priority: z.enum(["low", "normal", "high", "urgent"]),
+  organizationId: z.string(),
+  visitorId: z.string(),
+  websiteId: z.string(),
+  sentiment: z.enum(["positive", "neutral", "negative"]).nullable(),
+  sentimentConfidence: z.number().nullable(),
+  channel: z.string(),
+  title: z.string().nullable(),
+  titleSource: z.enum(["ai", "user"]).nullable(),
+  resolutionTime: z.number().nullable(),
+  visitorRating: z.number().min(1).max(5).nullable(),
+  visitorRatingAt: z.string().nullable(),
+  startedAt: z.string(),
+  firstResponseAt: z.string().nullable(),
+  resolvedAt: z.string().nullable(),
+  lastMessageAt: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+```
+
+## Conversation Lifecycle
+
+### 1. Creation
+
+Conversations are created when:
+
+- A visitor sends their first message through the widget
+- A support agent initiates outreach via the dashboard
+- Your backend creates one via the REST API
+
+```typescript
+// Create a conversation via API
+const response = await fetch('/api/conversations', {
+  method: 'POST',
+  headers: {
+    'X-Website-Id': websiteId,
+    'X-Visitor-Id': visitorId,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    defaultTimelineItems: [
+      {
+        type: 'message',
+        text: 'Hello, I need help with my account',
+        parts: [
+          { type: 'text', text: 'Hello, I need help with my account' }
+        ],
+      }
+    ],
+    channel: 'widget',
+  }),
+});
+```
+
+### 2. Status Flow
+
+Conversations move through these states:
+
+```
+open → resolved → spam
+  ↓       ↑
+  └───────┘ (can be reopened)
+```
+
+- **open**: Active conversation requiring attention
+- **resolved**: Conversation marked as complete (can be reopened)
+- **spam**: Blocked conversation from abusive visitor
+
+### 3. Priority Management
+
+Conversations can be prioritized to help teams focus on urgent issues:
+
+- **low**: General questions, non-urgent feedback
+- **normal**: Standard support requests (default)
+- **high**: Important issues affecting user experience
+- **urgent**: Critical problems requiring immediate attention
+
+<Note>
+AI agents can automatically adjust priority based on conversation content and sentiment analysis.
+</Note>
+
+## Real-time Features
+
+### WebSocket Synchronization
+
+Conversations support real-time updates via WebSocket:
+
+- New messages appear instantly for all participants
+- Typing indicators show when agents are composing
+- Seen receipts track when messages are read
+- Status changes broadcast immediately to all connected clients
+
+The Cossistant SDK handles all WebSocket management automatically.
+
+### Typing Indicators
+
+The system tracks typing state for both visitors and agents:
+
+```typescript
+// Set typing state for a visitor
+await fetch(`/api/conversations/${conversationId}/typing`, {
+  method: 'POST',
+  body: JSON.stringify({
+    isTyping: true,
+    visitorPreview: 'I am having trouble with...',
+  }),
+});
+```
+
+### Seen Tracking
+
+Cossistant automatically tracks when participants last viewed a conversation:
+
+```typescript title="apps/api/src/db/schema/conversation.ts"
+export const conversationSeen = pgTable(
+  "conversation_seen",
+  {
+    id: ulidPrimaryKey("id"),
+    conversationId: nanoidReference("conversation_id"),
+    
+    // Exactly one of these is non-null
+    userId: ulidNullableReference("user_id"),
+    visitorId: ulidNullableReference("visitor_id"),
+    aiAgentId: ulidNullableReference("ai_agent_id"),
+    
+    lastSeenAt: timestamp("last_seen_at").notNull(),
+  }
+);
+```
+
+This powers unread badges in the widget and dashboard.
+
+## Multi-Agent Collaboration
+
+Conversations support multiple types of participants working together:
+
+### Participant Types
+
+- **Visitors**: The end users initiating conversations
+- **Human agents**: Support team members from your organization
+- **AI agents**: Automated assistants that can respond, escalate, and manage conversations
+
+### Assignment & Participation
+
+Agents can be assigned to conversations for accountability:
+
+```typescript title="apps/api/src/db/schema/conversation.ts"
+export const conversationAssignee = pgTable(
+  "conversation_assignee",
+  {
+    id: ulidPrimaryKey("id"),
+    conversationId: nanoidReference("conversation_id"),
+    userId: ulidReference("user_id"),
+    assignedByUserId: ulidNullableReference("assigned_by_user_id"),
+    assignedByAiAgentId: ulidNullableReference("assigned_by_ai_agent_id"),
+    assignedAt: timestamp("assigned_at").notNull(),
+    unassignedAt: timestamp("unassigned_at"),
+  }
+);
+```
+
+Multiple agents can also participate without formal assignment:
+
+```typescript
+export const conversationParticipant = pgTable(
+  "conversation_participant",
+  {
+    id: ulidPrimaryKey("id"),
+    conversationId: nanoidReference("conversation_id"),
+    userId: ulidReference("user_id"),
+    status: conversationParticipationStatusEnum("status"), // requested | active | left
+    reason: text("reason"),
+    requestedByUserId: ulidNullableReference("requested_by_user_id"),
+    requestedByAiAgentId: ulidNullableReference("requested_by_ai_agent_id"),
+    joinedAt: timestamp("joined_at").notNull(),
+    leftAt: timestamp("left_at"),
+  }
+);
+```
+
+### AI Agent Escalation
+
+When an AI agent determines it cannot resolve an issue, it can escalate to human support:
+
+```typescript
+// Escalation is tracked on the conversation
+conversation.escalatedAt; // When escalation occurred
+conversation.escalatedByAiAgentId; // Which AI agent escalated
+conversation.escalationReason; // Why it was escalated
+conversation.escalationHandledAt; // When a human took over
+conversation.escalationHandledByUserId; // Which human agent handled it
+```
+
+<Info>
+AI agents can be configured to automatically assign conversations to specific team members when escalating.
+</Info>
+
+## Categorization & Views
+
+Conversations can be organized using views (similar to tags):
+
+```typescript title="apps/api/src/db/schema/conversation.ts"
+export const conversationView = pgTable(
+  "conversation_view",
+  {
+    id: ulidPrimaryKey("id"),
+    conversationId: nanoidReference("conversation_id"),
+    viewId: ulidReference("view_id"),
+    addedByUserId: ulidNullableReference("added_by_user_id"),
+    addedByAiAgentId: ulidNullableReference("added_by_ai_agent_id"),
+    createdAt: timestamp("created_at").notNull(),
+  }
+);
+```
+
+Views help with:
+- Filtering conversations in the dashboard
+- Routing to specialized teams
+- Generating analytics and reports
+- Tracking common issue categories
+
+<Tip>
+AI agents can automatically categorize conversations based on content analysis.
+</Tip>
+
+## Sentiment Analysis
+
+Cossistant can automatically analyze conversation sentiment:
+
+```typescript
+conversation.sentiment; // "positive" | "neutral" | "negative"
+conversation.sentimentConfidence; // 0.0 - 1.0
+```
+
+This helps prioritize conversations and identify unhappy customers early.
+
+## Performance Metrics
+
+Conversations track key support metrics:
+
+### Response Times
+
+```typescript
+conversation.firstResponseAt; // When the first reply was sent
+conversation.resolutionTime; // Time to resolution in seconds
+```
+
+### Customer Satisfaction
+
+```typescript
+conversation.visitorRating; // 1-5 star rating
+conversation.visitorRatingAt; // When the rating was submitted
+```
+
+These metrics power analytics dashboards and team performance reports.
+
+## Real-World Example
+
+Here's how a conversation flows through the system:
+
+```typescript
+// 1. Visitor starts conversation
+const conv = await createConversation({
+  visitorId: "vis_abc123",
+  websiteId: "web_xyz789",
+  defaultTimelineItems: [
+    {
+      type: "message",
+      text: "I can't access my account",
+      parts: [{ type: "text", text: "I can't access my account" }],
+    }
+  ],
+});
+// Status: open, Priority: normal
+
+// 2. AI agent responds and analyzes sentiment
+// Sentiment: negative, Confidence: 0.85
+// Priority automatically raised to: high
+
+// 3. AI agent realizes this requires password reset (account access)
+// Escalates to human support team
+conversation.escalatedAt = "2024-03-13T10:15:00Z";
+conversation.escalationReason = "Account access issue requires manual verification";
+
+// 4. Human agent Sarah joins
+// conversationParticipant created for Sarah
+// conversationAssignee created: assignedByAiAgentId = aiAgent.id
+
+// 5. Sarah resolves the issue
+conversation.status = "resolved";
+conversation.resolvedByUserId = "user_sarah";
+conversation.resolvedAt = "2024-03-13T10:30:00Z";
+conversation.resolutionTime = 900; // 15 minutes
+
+// 6. Visitor rates the experience
+conversation.visitorRating = 5;
+conversation.visitorRatingAt = "2024-03-13T10:31:00Z";
+```
+
+## Cross-Device Continuity
+
+For identified [contacts](/concepts/contacts), conversations sync across devices:
+
+- Start conversation on desktop → Continue on mobile
+- Same history, same context, seamless experience
+
+Anonymous [visitors](/concepts/contacts) have device-specific conversations tied to their visitor ID.
+
+## Best Practices
+
+### Auto-Generate Titles
+
+Enable AI-generated conversation titles for better organization:
+
+```typescript
+aiAgent.behaviorSettings.autoGenerateTitle = true;
+```
+
+### Configure Escalation
+
+Set up default escalation routing:
+
+```typescript
+aiAgent.behaviorSettings.canEscalate = true;
+aiAgent.behaviorSettings.defaultEscalationUserId = "user_lead_agent";
+aiAgent.behaviorSettings.autoAssignOnEscalation = true;
+```
+
+### Monitor Sentiment
+
+Use sentiment analysis to identify urgent issues:
+
+```typescript
+aiAgent.behaviorSettings.autoAnalyzeSentiment = true;
+
+// Then filter for negative sentiment conversations
+const urgentConversations = conversations.filter(
+  c => c.sentiment === "negative" && c.sentimentConfidence > 0.7
+);
+```
+
+## Learn More
+
+- [Timeline Items](/concepts/timeline-items): Messages, events, and other content in conversations
+- [Contacts](/concepts/contacts): Identified visitors with persistent conversation history
+- [AI Agents](/concepts/ai-agents): Automated agents that participate in conversations
+- [REST API](/api/conversations): Programmatic conversation management

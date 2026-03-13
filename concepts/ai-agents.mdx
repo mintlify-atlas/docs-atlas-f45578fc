@@ -1,0 +1,630 @@
+---
+title: AI Agents
+description: Intelligent assistants that autonomously handle conversations, invoke tools, and collaborate with human agents.
+---
+
+## What are AI Agents?
+
+**AI agents** are autonomous assistants in Cossistant that participate in [conversations](/concepts/conversations), respond to visitors, invoke tools, and make intelligent decisions about escalation and routing.
+
+Unlike simple chatbots, AI agents in Cossistant:
+
+- **Use tools**: Look up orders, search knowledge bases, update systems
+- **Make decisions**: Determine when to respond, escalate, or pause
+- **Collaborate**: Work alongside human agents seamlessly
+- **Learn from context**: Access visitor metadata, conversation history, and custom knowledge
+- **Follow instructions**: Customizable via prompts, skills, and behavior settings
+
+## Why AI Agents Matter
+
+AI agents transform support from reactive to proactive:
+
+**Without AI Agents:**
+- Every message requires human response
+- Simple questions take valuable agent time
+- 24/7 coverage requires night shifts
+- Response times depend on agent availability
+
+**With AI Agents:**
+- Instant responses to common questions
+- Automatic triage and categorization
+- Round-the-clock coverage without staffing overhead
+- Human agents focus on complex, high-value issues
+- Seamless escalation when needed
+
+## Data Model
+
+### Database Schema
+
+```typescript title="apps/api/src/db/schema/ai-agent.ts"
+export const aiAgent = pgTable(
+  "ai_agent",
+  {
+    id: ulidPrimaryKey("id"),
+    name: text("name").notNull(),
+    description: text("description"),
+    basePrompt: text("base_prompt").notNull(),
+    model: text("model").notNull(),
+    temperature: doublePrecision("temperature"),
+    maxOutputTokens: integer("max_tokens"),
+    organizationId: ulidReference("organization_id"),
+    websiteId: ulidReference("website_id"),
+    isActive: boolean("is_active").default(true).notNull(),
+    
+    // Usage tracking
+    lastUsedAt: timestamp("last_used_at"),
+    usageCount: integer("usage_count").default(0).notNull(),
+    
+    // Training
+    lastTrainedAt: timestamp("last_trained_at"),
+    trainingStatus: text("training_status").default("idle").notNull(),
+    trainingProgress: integer("training_progress").default(0).notNull(),
+    trainingError: text("training_error"),
+    trainedItemsCount: integer("trained_items_count"),
+    
+    // Configuration
+    goals: text("goals").array(),
+    metadata: jsonb("metadata"),
+    behaviorSettings: jsonb("behavior_settings").$type<AiAgentBehaviorSettings>(),
+    
+    // Onboarding
+    onboardingCompletedAt: timestamp("onboarding_completed_at"),
+    
+    createdAt: timestamp("created_at").notNull(),
+    updatedAt: timestamp("updated_at").notNull(),
+    deletedAt: timestamp("deleted_at"),
+  }
+);
+```
+
+### TypeScript Types
+
+```typescript title="packages/types/src/api/ai-agent.ts"
+export const aiAgentResponseSchema = z.object({
+  id: z.ulid(),
+  name: z.string(),
+  description: z.string().nullable(),
+  basePrompt: z.string(),
+  model: z.string(),
+  temperature: z.number().nullable(),
+  maxOutputTokens: z.number().nullable(),
+  isActive: z.boolean(),
+  lastUsedAt: z.string().nullable(),
+  usageCount: z.number(),
+  goals: z.array(z.string()).nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  onboardingCompletedAt: z.string().nullable(),
+});
+
+export type AiAgentResponse = z.infer<typeof aiAgentResponseSchema>;
+```
+
+### Behavior Settings
+
+```typescript title="apps/api/src/db/schema/ai-agent.ts"
+export type AiAgentBehaviorSettings = {
+  // Tool capabilities
+  canResolve: boolean;
+  canMarkSpam: boolean;
+  canAssign: boolean;
+  canSetPriority: boolean;
+  canCategorize: boolean;
+  canEscalate: boolean;
+  
+  // Escalation config
+  defaultEscalationUserId: string | null;
+  autoAssignOnEscalation?: boolean;
+  maxToolInvocationsPerRun: number;
+  
+  // Background analysis
+  autoAnalyzeSentiment: boolean;
+  autoGenerateTitle: boolean;
+  autoCategorize: boolean;
+};
+```
+
+## AI Agent Architecture
+
+AI agents in Cossistant follow a multi-stage pipeline:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Message Arrives                          │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│  INTAKE STAGE                                               │
+│  - Load conversation context                                │
+│  - Fetch visitor metadata                                   │
+│  - Retrieve conversation history                            │
+│  - Check AI pause status                                    │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│  DECISION STAGE                                             │
+│  - Should AI respond?                                       │
+│  - Foreground vs background mode?                           │
+│  - Check escalation status                                  │
+│  - Detect spam/abuse                                        │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│  GENERATION STAGE                                           │
+│  - Build system prompt                                      │
+│  - Invoke LLM with tools                                    │
+│  - Execute tool calls                                       │
+│  - Create timeline items                                    │
+│  - Update conversation state                                │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Intake Stage
+
+Loads all necessary context:
+
+```typescript title="apps/api/src/ai-pipeline/primary-pipeline/steps/intake/index.ts"
+const intakeResult = await runIntakeStep({
+  db,
+  input: {
+    conversationId,
+    messageId,
+    organizationId,
+    websiteId,
+    visitorId,
+  },
+});
+
+// Returns:
+// - aiAgent: AI agent configuration
+// - conversation: Current conversation state
+// - conversationHistory: Previous messages
+// - visitorContext: Contact metadata
+// - conversationState: Priority, sentiment, escalation status
+```
+
+### Decision Stage
+
+Determines whether and how to respond:
+
+```typescript title="apps/api/src/ai-pipeline/primary-pipeline/steps/decision/index.ts"
+const decisionResult = await runDecisionStep({
+  db,
+  input: intakeContext,
+});
+
+// Returns:
+// - shouldAct: boolean
+// - mode: "foreground" | "background_only" | "skip"
+// - reason: "human_active" | "ai_paused" | "spam_detected" | etc.
+// - humanCommand: Optional override command
+```
+
+**Decision logic includes:**
+- Is conversation escalated?
+- Is AI paused?
+- Is human agent actively typing?
+- Is visitor blocked/spam?
+- Does message require AI response?
+
+### Generation Stage
+
+Executes the AI agent's response:
+
+```typescript title="apps/api/src/ai-pipeline/shared/generation/index.ts"
+const generationResult = await runGenerationRuntime({
+  db,
+  pipelineKind: "primary",
+  mode: decision.mode,
+  aiAgent,
+  conversation,
+  conversationHistory,
+  visitorContext,
+  conversationState,
+  allowPublicMessages: true,
+  workflowRunId,
+  triggerMessageId,
+});
+
+// AI agent can:
+// - Send messages (public or private)
+// - Invoke tools (lookup_order, send_email, etc.)
+// - Update conversation (resolve, escalate, set priority)
+// - Request human assistance
+```
+
+## AI Agent Tools
+
+AI agents have access to powerful tools:
+
+### Messaging Tools
+
+```typescript
+// Send public message to visitor
+await tools.send_message({
+  text: "I found your order! It shipped yesterday.",
+  visibility: "public",
+});
+
+// Send private note to team
+await tools.internal_note({
+  text: "Customer seems frustrated - prioritize this.",
+});
+```
+
+### Conversation Management
+
+```typescript
+// Resolve conversation
+await tools.resolve({
+  reasoning: "Issue resolved - password reset sent",
+});
+
+// Set priority
+await tools.set_priority({
+  priority: "high",
+  reasoning: "Enterprise customer experiencing downtime",
+});
+
+// Add to view (categorize)
+await tools.categorize({
+  viewIds: ["view_billing", "view_urgent"],
+  reasoning: "Billing issue requiring immediate attention",
+});
+```
+
+### Escalation
+
+```typescript
+// Escalate to human agent
+await tools.escalate({
+  reasoning: "Account unlock requires identity verification",
+  assign_to_user_id: "user_lead_agent", // Optional
+});
+
+// Request specific team member
+await tools.request_help({
+  user_id: "user_billing_expert",
+  reason: "Complex refund scenario",
+});
+```
+
+### Analysis Tools
+
+```typescript
+// Analyze sentiment
+await tools.update_sentiment({
+  sentiment: "negative",
+  confidence: 0.85,
+  reasoning: "Customer expressing frustration with delivery delay",
+});
+
+// Generate title
+await tools.update_title({
+  title: "Shipping delay for order #12345",
+});
+```
+
+## Prompt Engineering
+
+AI agents are configured through a hierarchical prompt system:
+
+### Base Prompt
+
+Defines the agent's core identity and purpose:
+
+```markdown
+You are a helpful customer support assistant for Acme Corp. 
+
+Acme Corp is a SaaS platform that helps small businesses manage 
+their inventory. Our customers range from solo entrepreneurs to 
+small teams of up to 50 people.
+
+Your goal is to provide friendly, efficient support that helps 
+customers succeed with our product. Be concise, accurate, and 
+empathetic.
+```
+
+### Core Prompt Documents
+
+System-level instructions organized by category:
+
+```typescript title="packages/types/src/api/ai-agent.ts"
+export const AI_AGENT_CORE_PROMPT_DOCUMENT_NAMES = [
+  "agent.md",           // Agent identity and role
+  "security.md",        // Security policies
+  "behaviour.md",       // Response style and tone
+  "visitor-contact.md", // When to ask for visitor info
+  "participation.md",   // When to respond vs. stay silent
+  "decision.md",        // Decision-making framework
+  "grounding.md",       // Knowledge base usage
+  "capabilities.md",    // Available tools and actions
+] as const;
+```
+
+### Skill Documents
+
+Tool-specific or domain-specific instructions:
+
+```markdown
+<!-- refunds.md -->
+
+# Refund Processing Skill
+
+## When to Use
+- Customer explicitly requests a refund
+- Order is within 30-day return window
+- No previous refund on this order
+
+## Workflow
+1. Verify order ID and purchase date
+2. Check refund eligibility
+3. If eligible, process refund immediately
+4. If not eligible, explain policy and offer alternatives
+
+## Important
+- Always confirm order ID before processing
+- Refunds take 5-7 business days to appear
+- Partial refunds require manager approval
+```
+
+### Behavior Prompts
+
+Control when and how the AI responds:
+
+```markdown
+<!-- visitor-contact.md -->
+
+# Visitor Identification
+
+Only ask for visitor contact information when:
+- Performing account-specific actions (password reset, order lookup)
+- Visitor explicitly wants to be contacted
+- Creating support tickets that require follow-up
+
+Do NOT ask for contact info:
+- For general product questions
+- When information is already in metadata
+- For public knowledge base queries
+```
+
+## Behavior Settings API
+
+### Get Behavior Settings
+
+```typescript
+const response = await fetch(
+  `/api/websites/${websiteSlug}/ai-agent/behavior-settings`,
+  {
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+    },
+  }
+);
+
+const settings = await response.json();
+```
+
+### Update Behavior Settings
+
+```typescript
+const response = await fetch(
+  `/api/websites/${websiteSlug}/ai-agent/behavior-settings`,
+  {
+    method: 'PATCH',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      settings: {
+        canEscalate: true,
+        defaultEscalationUserId: 'user_lead_agent',
+        autoAssignOnEscalation: true,
+        canResolve: true,
+        canSetPriority: true,
+        autoAnalyzeSentiment: true,
+        autoGenerateTitle: true,
+        maxToolInvocationsPerRun: 20,
+      },
+    }),
+  }
+);
+```
+
+## Real-World Example
+
+Here's how an AI agent handles a support conversation:
+
+```typescript
+// 1. Customer message arrives
+const message = {
+  text: "I can't find my order #12345",
+  visitorId: "vis_abc",
+};
+
+// 2. Intake stage loads context
+const context = {
+  visitor: {
+    contact: {
+      email: "john@example.com",
+      metadata: {
+        plan: "pro",
+        mrr: 299,
+      },
+    },
+  },
+  conversation: {
+    status: "open",
+    priority: "normal",
+  },
+};
+
+// 3. Decision stage: should respond
+const decision = {
+  shouldAct: true,
+  mode: "foreground",
+  reason: "visitor_message_requires_response",
+};
+
+// 4. Generation stage: AI agent responds
+// First, invoke tool to lookup order
+const orderResult = await tools.lookup_order({
+  orderId: "12345",
+  email: "john@example.com",
+});
+
+// Then send response
+await tools.send_message({
+  text: `I found your order #12345! It shipped on March 10th via FedEx. 
+Tracking number: 1Z999AA10123456784. 
+
+It should arrive by March 15th. Is there anything else I can help with?`,
+  visibility: "public",
+});
+
+// Optionally update conversation
+await tools.update_sentiment({
+  sentiment: "neutral",
+  confidence: 0.75,
+});
+
+await tools.categorize({
+  viewIds: ["view_orders"],
+  reasoning: "Order tracking inquiry",
+});
+```
+
+## AI Agent Escalation
+
+When an AI agent determines it cannot handle a conversation:
+
+```typescript
+// AI agent detects it needs human help
+if (requiresIdentityVerification) {
+  await tools.escalate({
+    reasoning: "Account unlock requires identity verification that I cannot perform",
+    assign_to_user_id: "user_lead_agent",
+  });
+  
+  await tools.send_message({
+    text: "I've escalated your request to our support team. A team member will help you verify your identity and unlock your account shortly.",
+    visibility: "public",
+  });
+  
+  // AI pauses - won't respond to further messages
+  // until human agent handles escalation
+}
+```
+
+Escalation tracking:
+
+```typescript
+conversation.escalatedAt; // "2024-03-13T10:15:00Z"
+conversation.escalatedByAiAgentId; // "ai_123"
+conversation.escalationReason; // "Account unlock requires identity verification"
+conversation.escalationHandledAt; // null (pending)
+conversation.escalationHandledByUserId; // null (pending)
+```
+
+## Performance & Limits
+
+### Token Budgets
+
+AI agents track token usage:
+
+```typescript
+aiAgent.maxOutputTokens; // Max tokens per response (e.g., 2048)
+```
+
+### Tool Invocation Limits
+
+Prevent infinite loops:
+
+```typescript
+behaviorSettings.maxToolInvocationsPerRun; // e.g., 15
+
+// If agent exceeds limit, pipeline stops and escalates
+```
+
+### Rate Limiting
+
+AI agents respect conversation state:
+
+```typescript
+conversation.aiPausedUntil; // "2024-03-13T11:00:00Z"
+
+// If set, AI won't respond until this timestamp
+// Useful for "human is handling this" scenarios
+```
+
+## Best Practices
+
+### Configure Escalation Properly
+
+```typescript
+// ✅ Good - clear escalation path
+behaviorSettings: {
+  canEscalate: true,
+  defaultEscalationUserId: "user_lead_agent",
+  autoAssignOnEscalation: true,
+}
+
+// ❌ Bad - no escalation configured
+behaviorSettings: {
+  canEscalate: false, // AI has no way to get help!
+}
+```
+
+### Use Background Analysis
+
+```typescript
+// ✅ Good - automatic metadata enrichment
+behaviorSettings: {
+  autoAnalyzeSentiment: true,
+  autoGenerateTitle: true,
+  autoCategorize: true,
+}
+
+// Provides valuable context for human agents without
+// cluttering the conversation timeline
+```
+
+### Write Clear Skills
+
+```markdown
+<!-- ✅ Good skill - specific, actionable -->
+# Password Reset Skill
+
+## When to Use
+Visitor says they can't log in or forgot password.
+
+## Steps
+1. Confirm email address
+2. Use send_password_reset_email tool
+3. Inform visitor to check inbox (and spam folder)
+4. Resolve conversation
+
+## Edge Cases
+- If email not found, ask visitor to verify spelling
+- If reset fails, escalate to human support
+```
+
+### Monitor Agent Performance
+
+```typescript
+const stats = {
+  usageCount: aiAgent.usageCount,
+  lastUsedAt: aiAgent.lastUsedAt,
+  averageResolutionTime: /* calculate from conversations */,
+  escalationRate: /* % of conversations escalated */,
+  customerSatisfaction: /* average rating */,
+};
+```
+
+## Learn More
+
+- [Conversations](/concepts/conversations): Chat threads that AI agents participate in
+- [Timeline Items](/concepts/timeline-items): Messages and events created by AI agents
+- [AI Agent API](/concepts/ai-agents): REST API for managing AI agents
+- [Vercel AI SDK](https://sdk.vercel.ai/): AI SDK that powers Cossistant agents

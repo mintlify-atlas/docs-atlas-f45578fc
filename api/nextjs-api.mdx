@@ -1,0 +1,430 @@
+---
+title: "Next.js API Reference"
+description: "Complete API reference for the @cossistant/next SDK"
+---
+
+# Next.js SDK API Reference
+
+The `@cossistant/next` package provides Next.js-optimized components with `"use client"` directives for seamless integration in App Router projects.
+
+## Package Structure
+
+All exports from `@cossistant/react` are re-exported with `"use client"` directives:
+
+```tsx
+import { SupportProvider, Support, useSupport } from "@cossistant/next";
+```
+
+## Key Differences from React SDK
+
+### 1. Server Component Compatibility
+
+All components are marked with `"use client"` directive, allowing you to import them directly in Server Components:
+
+<CodeGroup>
+```tsx app/page.tsx
+import { Support } from "@cossistant/next";
+
+export default function Page() {
+  return (
+    <div>
+      <h1>My App</h1>
+      <Support />
+    </div>
+  );
+}
+```
+
+```tsx app/layout.tsx
+import { SupportProvider } from "@cossistant/next";
+
+export default function RootLayout({ children }) {
+  return (
+    <html>
+      <body>
+        <SupportProvider publicKey={process.env.NEXT_PUBLIC_COSSISTANT_KEY}>
+          {children}
+        </SupportProvider>
+      </body>
+    </html>
+  );
+}
+```
+</CodeGroup>
+
+### 2. Environment Variables
+
+Next.js convention for public environment variables:
+
+```bash .env.local
+NEXT_PUBLIC_COSSISTANT_KEY=pk_...
+```
+
+```tsx
+<SupportProvider publicKey={process.env.NEXT_PUBLIC_COSSISTANT_KEY} />
+```
+
+### 3. Route Handlers
+
+Use Next.js Route Handlers for server-side Cossistant operations:
+
+```typescript app/api/identify/route.ts
+import { NextRequest, NextResponse } from "next/server";
+
+export async function POST(request: NextRequest) {
+  const body = await request.json();
+  
+  // Server-side identification logic
+  // Use private API key here (not public key)
+  
+  return NextResponse.json({ success: true });
+}
+```
+
+---
+
+## Available Exports
+
+All React SDK exports are available:
+
+### Components
+
+- `SupportProvider` - Root provider with Next.js optimizations
+- `Support` - Complete support widget
+- `Feedback` - Feedback collection widget
+- `IdentifySupportVisitor` - Visitor identification component
+- `SupportConfig` - Dynamic configuration
+
+### Hooks
+
+All hooks from `@cossistant/react` are available:
+
+- `useSupport`
+- `useConversation`
+- `useConversations`
+- `useVisitor`
+- `useSendMessage`
+- `useConversationTimeline`
+- `useCreateConversation`
+- `useFileUpload`
+- `useConversationSeen`
+- `useConversationTyping`
+- `useConversationProcessing`
+- `useMessageComposer`
+- `useSupportHandle`
+- `useFeedbackHandle`
+- `useRealtimeConnection`
+- `useRealtime`
+
+### Primitives
+
+```tsx
+import * as Primitives from "@cossistant/next";
+
+<Primitives.ConversationTimeline />
+<Primitives.MultimodalInput />
+<Primitives.TimelineItem />
+```
+
+All primitives from React SDK are available.
+
+---
+
+## Best Practices
+
+### 1. Lazy Loading
+
+For optimal performance, lazy load the support widget:
+
+```tsx app/components/support.tsx
+'use client';
+
+import dynamic from 'next/dynamic';
+
+const Support = dynamic(
+  () => import('@cossistant/next').then(mod => mod.Support),
+  { ssr: false }
+);
+
+export function SupportWidget() {
+  return <Support />;
+}
+```
+
+### 2. Provider Placement
+
+Place provider in root layout for global access:
+
+```tsx app/layout.tsx
+import { SupportProvider } from '@cossistant/next';
+import './globals.css';
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="en">
+      <body>
+        <SupportProvider 
+          publicKey={process.env.NEXT_PUBLIC_COSSISTANT_KEY}
+          autoConnect={true}
+        >
+          {children}
+        </SupportProvider>
+      </body>
+    </html>
+  );
+}
+```
+
+### 3. TypeScript Configuration
+
+Ensure proper module resolution in `tsconfig.json`:
+
+```json tsconfig.json
+{
+  "compilerOptions": {
+    "moduleResolution": "bundler",
+    "jsx": "preserve",
+    "paths": {
+      "@/*": ["./*"]
+    }
+  }
+}
+```
+
+### 4. Middleware Integration
+
+Identify visitors using middleware:
+
+```typescript middleware.ts
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+
+export function middleware(request: NextRequest) {
+  const response = NextResponse.next();
+  
+  // Add custom headers for visitor identification
+  const userId = request.cookies.get('userId')?.value;
+  if (userId) {
+    response.headers.set('X-User-Id', userId);
+  }
+  
+  return response;
+}
+```
+
+### 5. Server Actions
+
+Use Server Actions for secure operations:
+
+```tsx app/actions/identify.ts
+'use server';
+
+import { CossistantClient } from '@cossistant/core';
+
+export async function identifyVisitor(data: {
+  externalId: string;
+  email: string;
+  name: string;
+}) {
+  const client = new CossistantClient({
+    apiKey: process.env.COSSISTANT_PRIVATE_KEY, // Private key on server
+    apiUrl: 'https://api.cossistant.com/v1'
+  });
+  
+  // Perform server-side identification
+  await client.identify(data);
+  
+  return { success: true };
+}
+```
+
+```tsx app/components/profile.tsx
+'use client';
+
+import { identifyVisitor } from '@/app/actions/identify';
+
+export function ProfileForm() {
+  const handleSubmit = async (data: FormData) => {
+    await identifyVisitor({
+      externalId: data.get('id') as string,
+      email: data.get('email') as string,
+      name: data.get('name') as string
+    });
+  };
+  
+  return <form action={handleSubmit}>...</form>;
+}
+```
+
+---
+
+## App Router Examples
+
+### Dynamic Imports
+
+```tsx app/support-wrapper.tsx
+'use client';
+
+import dynamic from 'next/dynamic';
+import { Suspense } from 'react';
+
+const DynamicSupport = dynamic(
+  () => import('@cossistant/next').then(mod => mod.Support),
+  {
+    ssr: false,
+    loading: () => <div>Loading support...</div>
+  }
+);
+
+export function SupportWrapper() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <DynamicSupport />
+    </Suspense>
+  );
+}
+```
+
+### Authenticated Routes
+
+```tsx app/dashboard/page.tsx
+import { IdentifySupportVisitor } from '@cossistant/next';
+import { getServerSession } from 'next-auth';
+
+export default async function DashboardPage() {
+  const session = await getServerSession();
+  
+  return (
+    <div>
+      <h1>Dashboard</h1>
+      {session?.user && (
+        <IdentifySupportVisitor
+          externalId={session.user.id}
+          email={session.user.email}
+          name={session.user.name}
+          image={session.user.image}
+          metadata={{
+            plan: session.user.plan,
+            role: session.user.role
+          }}
+        />
+      )}
+    </div>
+  );
+}
+```
+
+### Parallel Routes
+
+```tsx app/@support/page.tsx
+import { Support } from '@cossistant/next';
+
+export default function SupportSlot() {
+  return <Support />;
+}
+```
+
+```tsx app/layout.tsx
+export default function Layout({
+  children,
+  support
+}: {
+  children: React.ReactNode;
+  support: React.ReactNode;
+}) {
+  return (
+    <html>
+      <body>
+        {children}
+        {support}
+      </body>
+    </html>
+  );
+}
+```
+
+---
+
+## API Reference
+
+For detailed API documentation of all components and hooks, see the [React API Reference](/api/react-api).
+
+The Next.js SDK is a thin wrapper that re-exports all React SDK functionality with proper directives for Next.js App Router.
+
+---
+
+## Migration from Pages Router
+
+If you're migrating from Next.js Pages Router:
+
+<CodeGroup>
+```tsx pages/_app.tsx (Old)
+import { SupportProvider } from '@cossistant/react';
+
+export default function App({ Component, pageProps }) {
+  return (
+    <SupportProvider publicKey="pk_...">
+      <Component {...pageProps} />
+    </SupportProvider>
+  );
+}
+```
+
+```tsx app/layout.tsx (New)
+import { SupportProvider } from '@cossistant/next';
+
+export default function RootLayout({ children }) {
+  return (
+    <html>
+      <body>
+        <SupportProvider publicKey={process.env.NEXT_PUBLIC_COSSISTANT_KEY}>
+          {children}
+        </SupportProvider>
+      </body>
+    </html>
+  );
+}
+```
+</CodeGroup>
+
+---
+
+## Troubleshooting
+
+### Error: "use client" directive missing
+
+If you see this error, ensure you're importing from `@cossistant/next` not `@cossistant/react`:
+
+```tsx
+// ❌ Wrong
+import { Support } from '@cossistant/react';
+
+// ✅ Correct
+import { Support } from '@cossistant/next';
+```
+
+### Error: "window is not defined"
+
+Use dynamic imports with `ssr: false`:
+
+```tsx
+const Support = dynamic(
+  () => import('@cossistant/next').then(mod => mod.Support),
+  { ssr: false }
+);
+```
+
+### WebSocket Connection Issues
+
+Ensure WebSocket URL is accessible from client-side:
+
+```tsx
+<SupportProvider
+  publicKey={process.env.NEXT_PUBLIC_COSSISTANT_KEY}
+  wsUrl="wss://api.cossistant.com/ws"
+/>
+```

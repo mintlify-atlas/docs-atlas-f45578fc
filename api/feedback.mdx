@@ -1,0 +1,554 @@
+---
+title: "Feedback"
+description: "REST API endpoints for collecting and managing customer feedback"
+---
+
+The Feedback API allows you to collect structured feedback from visitors and customers. Feedback can be tied to conversations or submitted standalone (e.g., NPS surveys, churn feedback).
+
+## Authentication
+
+- **Submit Feedback**: Requires **Public API Key** (`X-Public-Key` header)
+- **List/Get Feedback**: Requires **Private API Key** (`Authorization` header)
+
+## Submit Feedback
+
+<Card title="POST /feedback" icon="comment">
+Submit feedback with a rating, optional topic, and optional comment.
+</Card>
+
+### Endpoint
+
+```
+POST https://api.cossistant.com/v1/feedback
+```
+
+### Headers
+
+<ParamField header="X-Public-Key" type="string" required>
+  Public API key: `pk_test_...`
+</ParamField>
+
+<ParamField header="X-Visitor-Id" type="string">
+  Visitor ID from localStorage (26-character ULID). Required when using public API key.
+</ParamField>
+
+### Request Body
+
+<ParamField body="rating" type="number" required>
+  Rating from 1 to 5
+  
+  - 1: Very dissatisfied
+  - 2: Dissatisfied
+  - 3: Neutral
+  - 4: Satisfied
+  - 5: Very satisfied
+</ParamField>
+
+<ParamField body="topic" type="string">
+  Optional structured topic selected by the user (e.g., "product_quality", "customer_service", "pricing")
+</ParamField>
+
+<ParamField body="comment" type="string">
+  Optional written feedback from the user
+</ParamField>
+
+<ParamField body="trigger" type="string">
+  What triggered this feedback submission
+  
+  Common triggers:
+  - `conversation_resolved`: Feedback after resolving a conversation
+  - `nps_survey`: Net Promoter Score survey
+  - `churn`: Exit survey when user cancels
+  - `feature_request`: Feedback on a specific feature
+  - `custom`: Custom trigger
+</ParamField>
+
+<ParamField body="source" type="string" default="widget">
+  Source of the feedback
+  
+  - `widget`: Submitted via the Cossistant widget
+  - `api`: Submitted via API
+  - `email`: Submitted via email
+</ParamField>
+
+<ParamField body="conversationId" type="string">
+  Optional conversation ID if feedback is tied to a conversation
+</ParamField>
+
+<ParamField body="visitorId" type="string">
+  Visitor ID. Optional if provided via `X-Visitor-Id` header.
+</ParamField>
+
+<ParamField body="contactId" type="string">
+  Optional contact ID if visitor has one
+</ParamField>
+
+### Response
+
+<ResponseField name="feedback" type="object">
+  The created feedback record
+  
+  <Expandable title="properties">
+    <ResponseField name="id" type="string">
+      Unique feedback ID (ULID)
+    </ResponseField>
+    
+    <ResponseField name="organizationId" type="string">
+      Organization ID
+    </ResponseField>
+    
+    <ResponseField name="websiteId" type="string">
+      Website ID
+    </ResponseField>
+    
+    <ResponseField name="conversationId" type="string | null">
+      Conversation ID if tied to a conversation
+    </ResponseField>
+    
+    <ResponseField name="visitorId" type="string | null">
+      Visitor ID who submitted the feedback
+    </ResponseField>
+    
+    <ResponseField name="contactId" type="string | null">
+      Contact ID if visitor has one
+    </ResponseField>
+    
+    <ResponseField name="rating" type="number">
+      Rating from 1 to 5
+    </ResponseField>
+    
+    <ResponseField name="topic" type="string | null">
+      Structured topic
+    </ResponseField>
+    
+    <ResponseField name="comment" type="string | null">
+      Written feedback
+    </ResponseField>
+    
+    <ResponseField name="trigger" type="string | null">
+      What triggered the feedback
+    </ResponseField>
+    
+    <ResponseField name="source" type="string">
+      Source of the feedback
+    </ResponseField>
+    
+    <ResponseField name="createdAt" type="string">
+      ISO 8601 timestamp when submitted
+    </ResponseField>
+    
+    <ResponseField name="updatedAt" type="string">
+      ISO 8601 timestamp of last update
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example Requests
+
+<Tabs>
+  <Tab title="Conversation Feedback">
+    ```bash cURL
+    curl -X POST https://api.cossistant.com/v1/feedback \
+      -H "X-Public-Key: pk_test_abc123..." \
+      -H "X-Visitor-Id: 01JG000000000000000000000" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "rating": 5,
+        "comment": "Great support, very helpful!",
+        "trigger": "conversation_resolved",
+        "conversationId": "01JG123456789ABCDEFGHIJK",
+        "source": "widget"
+      }'
+    ```
+    
+    ```javascript JavaScript
+    const response = await fetch('https://api.cossistant.com/v1/feedback', {
+      method: 'POST',
+      headers: {
+        'X-Public-Key': 'pk_test_abc123...',
+        'X-Visitor-Id': '01JG000000000000000000000',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        rating: 5,
+        comment: 'Great support, very helpful!',
+        trigger: 'conversation_resolved',
+        conversationId: '01JG123456789ABCDEFGHIJK',
+        source: 'widget'
+      })
+    });
+    
+    const data = await response.json();
+    ```
+  </Tab>
+  
+  <Tab title="NPS Survey">
+    ```bash cURL
+    curl -X POST https://api.cossistant.com/v1/feedback \
+      -H "X-Public-Key: pk_test_abc123..." \
+      -H "X-Visitor-Id: 01JG000000000000000000000" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "rating": 4,
+        "topic": "product_quality",
+        "comment": "Great product, would recommend to others",
+        "trigger": "nps_survey",
+        "source": "email"
+      }'
+    ```
+  </Tab>
+  
+  <Tab title="Churn Survey">
+    ```bash cURL
+    curl -X POST https://api.cossistant.com/v1/feedback \
+      -H "X-Public-Key: pk_test_abc123..." \
+      -H "X-Visitor-Id: 01JG000000000000000000000" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "rating": 2,
+        "topic": "pricing",
+        "comment": "Too expensive for my needs",
+        "trigger": "churn",
+        "source": "widget"
+      }'
+    ```
+  </Tab>
+  
+  <Tab title="Feature Feedback">
+    ```bash cURL
+    curl -X POST https://api.cossistant.com/v1/feedback \
+      -H "X-Public-Key: pk_test_abc123..." \
+      -H "X-Visitor-Id: 01JG000000000000000000000" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "rating": 3,
+        "topic": "feature_request",
+        "comment": "Would love to see dark mode support",
+        "trigger": "feature_request",
+        "source": "api"
+      }'
+    ```
+  </Tab>
+</Tabs>
+
+### Example Response
+
+```json 201 - Created
+{
+  "feedback": {
+    "id": "01JG123456789ABCDEFGHIJKT",
+    "organizationId": "01JG000000000000000000002",
+    "websiteId": "01JG000000000000000000001",
+    "conversationId": "01JG123456789ABCDEFGHIJK",
+    "visitorId": "01JG000000000000000000000",
+    "contactId": "01JG123456789ABCDEFGHIJKQ",
+    "rating": 5,
+    "topic": null,
+    "comment": "Great support, very helpful!",
+    "trigger": "conversation_resolved",
+    "source": "widget",
+    "createdAt": "2024-01-15T11:00:00.000Z",
+    "updatedAt": "2024-01-15T11:00:00.000Z"
+  }
+}
+```
+
+---
+
+## List Feedback
+
+<Card title="GET /feedback" icon="list">
+Retrieve a paginated list of feedback for the website.
+</Card>
+
+### Endpoint
+
+```
+GET https://api.cossistant.com/v1/feedback
+```
+
+### Headers
+
+<ParamField header="Authorization" type="string" required>
+  Private API key in Bearer token format: `Bearer sk_test_...`
+  
+  **Note**: This endpoint requires a private API key.
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="trigger" type="string">
+  Filter by trigger type (e.g., `conversation_resolved`, `nps_survey`, `churn`)
+</ParamField>
+
+<ParamField query="source" type="string">
+  Filter by source (e.g., `widget`, `api`, `email`)
+</ParamField>
+
+<ParamField query="conversationId" type="string">
+  Filter by conversation ID
+</ParamField>
+
+<ParamField query="visitorId" type="string">
+  Filter by visitor ID
+</ParamField>
+
+<ParamField query="page" type="number" default="1">
+  Page number for pagination (min: 1)
+</ParamField>
+
+<ParamField query="limit" type="number" default="20">
+  Number of items per page (min: 1, max: 100)
+</ParamField>
+
+### Response
+
+<ResponseField name="feedback" type="array">
+  Array of feedback records
+</ResponseField>
+
+<ResponseField name="pagination" type="object">
+  Pagination metadata
+  
+  <Expandable title="properties">
+    <ResponseField name="page" type="number">
+      Current page number
+    </ResponseField>
+    
+    <ResponseField name="limit" type="number">
+      Items per page
+    </ResponseField>
+    
+    <ResponseField name="total" type="number">
+      Total number of feedback records
+    </ResponseField>
+    
+    <ResponseField name="totalPages" type="number">
+      Total number of pages
+    </ResponseField>
+    
+    <ResponseField name="hasMore" type="boolean">
+      Whether more pages are available
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example Request
+
+```bash cURL
+curl -X GET "https://api.cossistant.com/v1/feedback?trigger=conversation_resolved&page=1&limit=20" \
+  -H "Authorization: Bearer sk_test_xyz789..."
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.cossistant.com/v1/feedback?trigger=conversation_resolved&page=1&limit=20', {
+  method: 'GET',
+  headers: {
+    'Authorization': 'Bearer sk_test_xyz789...'
+  }
+});
+
+const data = await response.json();
+```
+
+### Example Response
+
+```json 200 - Success
+{
+  "feedback": [
+    {
+      "id": "01JG123456789ABCDEFGHIJKT",
+      "organizationId": "01JG000000000000000000002",
+      "websiteId": "01JG000000000000000000001",
+      "conversationId": "01JG123456789ABCDEFGHIJK",
+      "visitorId": "01JG000000000000000000000",
+      "contactId": "01JG123456789ABCDEFGHIJKQ",
+      "rating": 5,
+      "topic": null,
+      "comment": "Great support, very helpful!",
+      "trigger": "conversation_resolved",
+      "source": "widget",
+      "createdAt": "2024-01-15T11:00:00.000Z",
+      "updatedAt": "2024-01-15T11:00:00.000Z"
+    },
+    {
+      "id": "01JG123456789ABCDEFGHIJKU",
+      "organizationId": "01JG000000000000000000002",
+      "websiteId": "01JG000000000000000000001",
+      "conversationId": "01JG987654321ZYXWVUTSRQP",
+      "visitorId": "01JG000000000000000000005",
+      "contactId": null,
+      "rating": 4,
+      "topic": "response_time",
+      "comment": "Quick response, but could be faster",
+      "trigger": "conversation_resolved",
+      "source": "widget",
+      "createdAt": "2024-01-15T10:30:00.000Z",
+      "updatedAt": "2024-01-15T10:30:00.000Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 2,
+    "totalPages": 1,
+    "hasMore": false
+  }
+}
+```
+
+---
+
+## Get Feedback by ID
+
+<Card title="GET /feedback/:id" icon="comment-dots">
+Retrieve a single feedback entry by ID.
+</Card>
+
+### Endpoint
+
+```
+GET https://api.cossistant.com/v1/feedback/{id}
+```
+
+### Headers
+
+<ParamField header="Authorization" type="string" required>
+  Private API key in Bearer token format: `Bearer sk_test_...`
+</ParamField>
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  The feedback ID (ULID)
+</ParamField>
+
+### Response
+
+<ResponseField name="feedback" type="object">
+  The feedback record
+</ResponseField>
+
+### Example Request
+
+```bash cURL
+curl -X GET https://api.cossistant.com/v1/feedback/01JG123456789ABCDEFGHIJKT \
+  -H "Authorization: Bearer sk_test_xyz789..."
+```
+
+### Example Response
+
+```json 200 - Success
+{
+  "feedback": {
+    "id": "01JG123456789ABCDEFGHIJKT",
+    "organizationId": "01JG000000000000000000002",
+    "websiteId": "01JG000000000000000000001",
+    "conversationId": "01JG123456789ABCDEFGHIJK",
+    "visitorId": "01JG000000000000000000000",
+    "contactId": "01JG123456789ABCDEFGHIJKQ",
+    "rating": 5,
+    "topic": null,
+    "comment": "Great support, very helpful!",
+    "trigger": "conversation_resolved",
+    "source": "widget",
+    "createdAt": "2024-01-15T11:00:00.000Z",
+    "updatedAt": "2024-01-15T11:00:00.000Z"
+  }
+}
+```
+
+```json 404 - Not Found
+{
+  "error": "NOT_FOUND",
+  "message": "Feedback not found"
+}
+```
+
+---
+
+## Feedback Rating Scale
+
+The feedback API uses a 5-point rating scale:
+
+| Rating | Meaning | NPS Category |
+|--------|---------|-------------|
+| 1 | Very dissatisfied | Detractor |
+| 2 | Dissatisfied | Detractor |
+| 3 | Neutral | Passive |
+| 4 | Satisfied | Passive |
+| 5 | Very satisfied | Promoter |
+
+### Calculating NPS
+
+To calculate Net Promoter Score from feedback:
+
+1. **Promoters** (rating 5): % of total responses
+2. **Passives** (rating 3-4): % of total responses
+3. **Detractors** (rating 1-2): % of total responses
+4. **NPS** = % Promoters - % Detractors
+
+---
+
+## Common Trigger Types
+
+- `conversation_resolved`: Feedback after a conversation is resolved
+- `nps_survey`: Net Promoter Score survey
+- `csat_survey`: Customer Satisfaction survey
+- `churn`: Exit survey when user cancels or churns
+- `feature_request`: Feedback on a specific feature
+- `product_feedback`: General product feedback
+- `support_quality`: Feedback on support quality
+- `custom`: Custom trigger type
+
+---
+
+## Common Topic Values
+
+- `product_quality`: Overall product quality
+- `customer_service`: Support and service quality
+- `pricing`: Pricing and value
+- `features`: Product features and functionality
+- `ease_of_use`: Usability and user experience
+- `performance`: Speed and reliability
+- `response_time`: Support response time
+- `documentation`: Quality of documentation
+
+---
+
+## Error Responses
+
+```json 400 - Bad Request
+{
+  "error": "BAD_REQUEST",
+  "message": "Invalid request data"
+}
+```
+
+```json 401 - Unauthorized
+{
+  "error": "UNAUTHORIZED",
+  "message": "Invalid or missing private API key"
+}
+```
+
+```json 403 - Forbidden
+{
+  "error": "FORBIDDEN",
+  "message": "Private API key required"
+}
+```
+
+```json 404 - Not Found
+{
+  "error": "NOT_FOUND",
+  "message": "Conversation not found"
+}
+```
+
+```json 500 - Internal Server Error
+{
+  "error": "INTERNAL_SERVER_ERROR",
+  "message": "Failed to submit feedback"
+}
+```

@@ -1,0 +1,546 @@
+---
+title: "Messages"
+description: "REST API endpoints for sending messages and timeline items"
+---
+
+The Messages API allows you to send messages (timeline items) to existing conversations. Messages can include text, images, files, and other content parts.
+
+## Authentication
+
+Message endpoints support both public and private API keys:
+
+- **Public API Key** (`X-Public-Key` header): For client-side usage, visitors can only send messages to their own conversations
+- **Private API Key** (`Authorization` header): For server-side usage, can send messages as users or AI agents
+
+## Send Message
+
+<Card title="POST /messages" icon="paper-plane">
+Send a new message (timeline item) to an existing conversation.
+</Card>
+
+### Endpoint
+
+```
+POST https://api.cossistant.com/v1/messages
+```
+
+### Headers
+
+<ParamField header="Authorization" type="string">
+  Private API key in Bearer token format: `Bearer sk_test_...`
+  
+  Use for server-to-server authentication. Allows sending as users or AI agents.
+</ParamField>
+
+<ParamField header="X-Public-Key" type="string">
+  Public API key: `pk_test_...`
+  
+  Use for browser-based authentication. Limited to sending as visitors only.
+</ParamField>
+
+<ParamField header="X-Visitor-Id" type="string">
+  Visitor ID from localStorage (26-character ULID).
+  
+  Required when using public API key.
+</ParamField>
+
+### Request Body
+
+<ParamField body="conversationId" type="string" required>
+  ID of the conversation to send the message to
+</ParamField>
+
+<ParamField body="item" type="object" required>
+  The timeline item (message) to send
+  
+  <Expandable title="item properties">
+    <ParamField body="item.id" type="string">
+      Optional client-generated ID for idempotency
+    </ParamField>
+    
+    <ParamField body="item.type" type="string" default="message">
+      Timeline item type: `"message"` or `"event"`
+    </ParamField>
+    
+    <ParamField body="item.text" type="string" required>
+      Main text content of the message
+    </ParamField>
+    
+    <ParamField body="item.parts" type="array">
+      Array of message parts for rich content
+      
+      Supported part types:
+      - `text`: Text content
+      - `image`: Image attachment with URL and dimensions
+      - `file`: File attachment with URL and metadata
+      - `source-url`: Citation/reference to a URL
+      - `source-document`: Citation/reference to a document
+    </ParamField>
+    
+    <ParamField body="item.visibility" type="string" default="public">
+      Visibility level: `"public"` or `"private"`
+      
+      Public messages are visible to visitors, private messages are internal only.
+    </ParamField>
+    
+    <ParamField body="item.userId" type="string">
+      ID of the user sending the message (private API key only)
+    </ParamField>
+    
+    <ParamField body="item.aiAgentId" type="string">
+      ID of the AI agent sending the message (private API key only)
+    </ParamField>
+    
+    <ParamField body="item.visitorId" type="string">
+      ID of the visitor sending the message
+    </ParamField>
+    
+    <ParamField body="item.createdAt" type="string">
+      Optional timestamp for the message (ISO 8601)
+    </ParamField>
+    
+    <ParamField body="item.tool" type="string">
+      Optional tool identifier for non-message timeline items
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Response
+
+<ResponseField name="item" type="object">
+  The created timeline item
+  
+  <Expandable title="properties">
+    <ResponseField name="id" type="string">
+      Unique timeline item ID (ULID)
+    </ResponseField>
+    
+    <ResponseField name="conversationId" type="string">
+      Parent conversation ID
+    </ResponseField>
+    
+    <ResponseField name="organizationId" type="string">
+      Organization ID
+    </ResponseField>
+    
+    <ResponseField name="type" type="string">
+      Item type: `"message"`, `"event"`, `"identification"`, or `"tool"`
+    </ResponseField>
+    
+    <ResponseField name="visibility" type="string">
+      `"public"` or `"private"`
+    </ResponseField>
+    
+    <ResponseField name="text" type="string | null">
+      Main text content
+    </ResponseField>
+    
+    <ResponseField name="parts" type="array">
+      Array of message parts
+    </ResponseField>
+    
+    <ResponseField name="userId" type="string | null">
+      User who created the message
+    </ResponseField>
+    
+    <ResponseField name="aiAgentId" type="string | null">
+      AI agent who created the message
+    </ResponseField>
+    
+    <ResponseField name="visitorId" type="string | null">
+      Visitor who created the message
+    </ResponseField>
+    
+    <ResponseField name="tool" type="string | null">
+      Tool identifier if applicable
+    </ResponseField>
+    
+    <ResponseField name="createdAt" type="string">
+      ISO 8601 timestamp when the item was created
+    </ResponseField>
+    
+    <ResponseField name="deletedAt" type="string | null">
+      ISO 8601 timestamp if deleted
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example Requests
+
+<Tabs>
+  <Tab title="Simple Text Message">
+    ```bash cURL
+    curl -X POST https://api.cossistant.com/v1/messages \
+      -H "X-Public-Key: pk_test_abc123..." \
+      -H "X-Visitor-Id: 01JG000000000000000000000" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "conversationId": "01JG123456789ABCDEFGHIJK",
+        "item": {
+          "type": "message",
+          "text": "I am having issues logging in",
+          "visibility": "public",
+          "parts": [
+            {
+              "type": "text",
+              "text": "I am having issues logging in"
+            }
+          ]
+        }
+      }'
+    ```
+    
+    ```javascript JavaScript
+    const response = await fetch('https://api.cossistant.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'X-Public-Key': 'pk_test_abc123...',
+        'X-Visitor-Id': '01JG000000000000000000000',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        conversationId: '01JG123456789ABCDEFGHIJK',
+        item: {
+          type: 'message',
+          text: 'I am having issues logging in',
+          visibility: 'public',
+          parts: [
+            {
+              type: 'text',
+              text: 'I am having issues logging in'
+            }
+          ]
+        }
+      })
+    });
+    
+    const data = await response.json();
+    ```
+  </Tab>
+  
+  <Tab title="Message with Image">
+    ```bash cURL
+    curl -X POST https://api.cossistant.com/v1/messages \
+      -H "X-Public-Key: pk_test_abc123..." \
+      -H "X-Visitor-Id: 01JG000000000000000000000" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "conversationId": "01JG123456789ABCDEFGHIJK",
+        "item": {
+          "type": "message",
+          "text": "Here is a screenshot of the error",
+          "visibility": "public",
+          "parts": [
+            {
+              "type": "text",
+              "text": "Here is a screenshot of the error"
+            },
+            {
+              "type": "image",
+              "url": "https://example.com/screenshot.png",
+              "mediaType": "image/png",
+              "filename": "screenshot.png",
+              "width": 1920,
+              "height": 1080,
+              "size": 245678
+            }
+          ]
+        }
+      }'
+    ```
+  </Tab>
+  
+  <Tab title="Private Message from User">
+    ```bash cURL
+    curl -X POST https://api.cossistant.com/v1/messages \
+      -H "Authorization: Bearer sk_test_xyz789..." \
+      -H "Content-Type: application/json" \
+      -d '{
+        "conversationId": "01JG123456789ABCDEFGHIJK",
+        "item": {
+          "type": "message",
+          "text": "Internal note: escalate to engineering team",
+          "visibility": "private",
+          "userId": "01JG000000000000000000004",
+          "parts": [
+            {
+              "type": "text",
+              "text": "Internal note: escalate to engineering team"
+            }
+          ]
+        }
+      }'
+    ```
+  </Tab>
+  
+  <Tab title="Message with File">
+    ```bash cURL
+    curl -X POST https://api.cossistant.com/v1/messages \
+      -H "X-Public-Key: pk_test_abc123..." \
+      -H "X-Visitor-Id: 01JG000000000000000000000" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "conversationId": "01JG123456789ABCDEFGHIJK",
+        "item": {
+          "type": "message",
+          "text": "Attached is the error log",
+          "visibility": "public",
+          "parts": [
+            {
+              "type": "text",
+              "text": "Attached is the error log"
+            },
+            {
+              "type": "file",
+              "url": "https://example.com/error.log",
+              "mediaType": "text/plain",
+              "filename": "error.log",
+              "size": 12345
+            }
+          ]
+        }
+      }'
+    ```
+  </Tab>
+</Tabs>
+
+### Example Response
+
+```json 200 - Success
+{
+  "item": {
+    "id": "01JG123456789ABCDEFGHIJKP",
+    "conversationId": "01JG123456789ABCDEFGHIJK",
+    "organizationId": "01JG000000000000000000002",
+    "type": "message",
+    "visibility": "public",
+    "text": "I am having issues logging in",
+    "parts": [
+      {
+        "type": "text",
+        "text": "I am having issues logging in"
+      }
+    ],
+    "userId": null,
+    "aiAgentId": null,
+    "visitorId": "01JG000000000000000000000",
+    "tool": null,
+    "createdAt": "2024-01-15T10:45:00.000Z",
+    "deletedAt": null
+  }
+}
+```
+
+---
+
+## Message Parts Reference
+
+Messages support various part types for rich content:
+
+### Text Part
+
+```json
+{
+  "type": "text",
+  "text": "Message content",
+  "state": "done"
+}
+```
+
+<ParamField body="type" type="string" required>
+  Always `"text"`
+</ParamField>
+
+<ParamField body="text" type="string" required>
+  The text content
+</ParamField>
+
+<ParamField body="state" type="string">
+  Optional streaming state: `"streaming"` or `"done"`
+</ParamField>
+
+### Image Part
+
+```json
+{
+  "type": "image",
+  "url": "https://example.com/image.png",
+  "mediaType": "image/png",
+  "filename": "screenshot.png",
+  "width": 1920,
+  "height": 1080,
+  "size": 245678
+}
+```
+
+<ParamField body="type" type="string" required>
+  Always `"image"`
+</ParamField>
+
+<ParamField body="url" type="string" required>
+  URL of the image (hosted URL or Data URL)
+</ParamField>
+
+<ParamField body="mediaType" type="string" required>
+  IANA media type (e.g., `image/png`, `image/jpeg`)
+</ParamField>
+
+<ParamField body="filename" type="string">
+  Original filename
+</ParamField>
+
+<ParamField body="width" type="number">
+  Image width in pixels
+</ParamField>
+
+<ParamField body="height" type="number">
+  Image height in pixels
+</ParamField>
+
+<ParamField body="size" type="number">
+  File size in bytes
+</ParamField>
+
+### File Part
+
+```json
+{
+  "type": "file",
+  "url": "https://example.com/document.pdf",
+  "mediaType": "application/pdf",
+  "filename": "invoice.pdf",
+  "size": 123456
+}
+```
+
+<ParamField body="type" type="string" required>
+  Always `"file"`
+</ParamField>
+
+<ParamField body="url" type="string" required>
+  URL of the file
+</ParamField>
+
+<ParamField body="mediaType" type="string" required>
+  IANA media type (e.g., `application/pdf`, `text/plain`)
+</ParamField>
+
+<ParamField body="filename" type="string">
+  Original filename
+</ParamField>
+
+<ParamField body="size" type="number">
+  File size in bytes
+</ParamField>
+
+### Source URL Part (Citations)
+
+```json
+{
+  "type": "source-url",
+  "sourceId": "source-1",
+  "url": "https://docs.example.com/article",
+  "title": "How to Reset Your Password"
+}
+```
+
+<ParamField body="type" type="string" required>
+  Always `"source-url"`
+</ParamField>
+
+<ParamField body="sourceId" type="string" required>
+  Unique identifier for this source
+</ParamField>
+
+<ParamField body="url" type="string" required>
+  URL of the source
+</ParamField>
+
+<ParamField body="title" type="string">
+  Title of the source
+</ParamField>
+
+### Source Document Part
+
+```json
+{
+  "type": "source-document",
+  "sourceId": "doc-1",
+  "mediaType": "application/pdf",
+  "title": "User Manual",
+  "filename": "manual.pdf"
+}
+```
+
+<ParamField body="type" type="string" required>
+  Always `"source-document"`
+</ParamField>
+
+<ParamField body="sourceId" type="string" required>
+  Unique identifier for this source
+</ParamField>
+
+<ParamField body="mediaType" type="string" required>
+  IANA media type of the document
+</ParamField>
+
+<ParamField body="title" type="string" required>
+  Title of the document
+</ParamField>
+
+<ParamField body="filename" type="string">
+  Filename of the document
+</ParamField>
+
+---
+
+## Behavior Notes
+
+### With Public API Key
+
+- Only visitors can send messages to conversations they own
+- Cannot set `userId` or `aiAgentId`
+- Cannot send messages to closed conversations (resolved/spam)
+- Visitor must be verified via `X-Visitor-Id` header or request body
+
+### With Private API Key
+
+- Can send messages as users, AI agents, or visitors
+- Can send to any conversation in the website
+- Can create private (internal) messages
+- Users are automatically added as participants when sending their first message
+
+### Automatic Actions
+
+- Sending a message marks the conversation as seen by the sender (except visitors)
+- User presence is tracked when sending messages
+- Message notifications are triggered for conversation participants
+- If a user sends a message to a conversation they're not participating in, they are automatically added
+
+---
+
+## Error Responses
+
+```json 400 - Bad Request
+{
+  "error": "Invalid request data"
+}
+```
+
+```json 403 - Forbidden
+{
+  "error": "Forbidden: visitor does not own the conversation"
+}
+```
+
+```json 403 - Conversation Closed
+{
+  "error": "Forbidden: this conversation is closed and cannot receive new messages"
+}
+```
+
+```json 404 - Not Found
+{
+  "error": "Conversation for website not found"
+}
+```

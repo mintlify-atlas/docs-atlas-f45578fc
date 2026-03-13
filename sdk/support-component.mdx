@@ -1,0 +1,544 @@
+---
+title: Support Component
+description: Complete reference for the Support component with all props, compound components, and usage patterns.
+icon: message
+---
+
+## Overview
+
+The `<Support />` component is a complete, production-ready support widget with chat, routing, and real-time features. It follows a **progressive disclosure** philosophy:
+
+- **Zero Config**: Works instantly with sensible defaults
+- **Progressive Enhancement**: Add props as you need them
+- **Compound Components**: Compose custom layouts with `Support.Trigger`, `Support.Content`, etc.
+- **Real-time**: Built-in WebSocket support
+
+## Basic Usage
+
+```tsx
+import { Support } from "@cossistant/react";
+import "@cossistant/react/styles.css";
+
+<Support />
+```
+
+## Props
+
+### Visual & Positioning
+
+<ParamField path="theme" type="'light' | 'dark'">
+  Force a specific theme. Omit for automatic detection based on system preferences.
+</ParamField>
+
+<ParamField path="side" type="'top' | 'bottom' | 'left' | 'right'" default="top">
+  Which side of the trigger to place the content panel.
+</ParamField>
+
+<ParamField path="align" type="'start' | 'center' | 'end'" default="end">
+  Alignment along the side axis.
+</ParamField>
+
+<ParamField path="sideOffset" type="number" default={16}>
+  Distance in pixels between trigger and content.
+</ParamField>
+
+<ParamField path="avoidCollisions" type="boolean" default={true}>
+  Enable automatic collision avoidance. When true, content repositions to stay within viewport.
+</ParamField>
+
+<ParamField path="collisionPadding" type="number | { top?: number; right?: number; bottom?: number; left?: number }" default={8}>
+  Padding from viewport edges when avoiding collisions.
+</ParamField>
+
+<ParamField path="className" type="string">
+  Additional CSS classes for the root wrapper.
+</ParamField>
+
+<ParamField path="classNames" type="{ trigger?: string; content?: string }">
+  Granular className overrides for specific parts.
+</ParamField>
+
+### State Management
+
+<ParamField path="open" type="boolean">
+  Controlled open state. When provided, the widget operates in controlled mode. Use with `onOpenChange`.
+</ParamField>
+
+<ParamField path="onOpenChange" type="(open: boolean) => void">
+  Callback fired when open state should change. Use with `open` prop for controlled mode.
+</ParamField>
+
+<ParamField path="defaultOpen" type="boolean" default={false}>
+  Whether widget should open automatically on mount (uncontrolled mode). Ignored when `open` prop is provided.
+</ParamField>
+
+### Content & Messages
+
+<ParamField path="quickOptions" type="string[]">
+  Quick reply options displayed to users.
+  
+  ```tsx
+  quickOptions={[
+    "How does billing work?",
+    "What's included in Pro?",
+    "Can I cancel anytime?"
+  ]}
+  ```
+</ParamField>
+
+<ParamField path="defaultMessages" type="DefaultMessage[]">
+  Custom welcome messages shown before a conversation starts.
+  
+  ```tsx
+  defaultMessages={[
+    {
+      content: "Hi! How can we help you today?",
+      senderType: SenderType.TeamMember
+    }
+  ]}
+  ```
+</ParamField>
+
+<ParamField path="locale" type="string">
+  Locale string for widget translations (e.g., "en", "fr", "es").
+</ParamField>
+
+<ParamField path="content" type="Partial<SupportTextContent>">
+  Custom text content overrides for internationalization. Allows you to override specific UI strings.
+</ParamField>
+
+### Routing
+
+<ParamField path="customPages" type="CustomPage[]">
+  Custom pages to add to the router.
+  
+  ```tsx
+  customPages={[
+    { name: "FAQ", component: FAQPage },
+    { name: "SETTINGS", component: SettingsPage }
+  ]}
+  ```
+</ParamField>
+
+### Event Callbacks
+
+<ParamField path="onConversationStart" type="(event: ConversationStartEvent) => void">
+  Called when a new conversation is started.
+  
+  ```tsx
+  onConversationStart={(event) => {
+    console.log("Conversation started:", event.conversationId);
+    analytics.track("conversation_started");
+  }}
+  ```
+</ParamField>
+
+<ParamField path="onConversationEnd" type="(event: ConversationEndEvent) => void">
+  Called when a conversation ends (resolved, closed, etc.).
+  
+  ```tsx
+  onConversationEnd={(event) => {
+    console.log("Conversation ended:", event.conversationId);
+  }}
+  ```
+</ParamField>
+
+<ParamField path="onMessageSent" type="(event: MessageSentEvent) => void">
+  Called when the visitor sends a message.
+  
+  ```tsx
+  onMessageSent={(event) => {
+    console.log("Message sent:", event.message.text);
+  }}
+  ```
+</ParamField>
+
+<ParamField path="onMessageReceived" type="(event: MessageReceivedEvent) => void">
+  Called when a message is received from an agent (human or AI).
+  
+  ```tsx
+  onMessageReceived={(event) => {
+    console.log("Message received:", event.message.text);
+  }}
+  ```
+</ParamField>
+
+<ParamField path="onError" type="(event: ErrorEvent) => void">
+  Called when an error occurs within the widget.
+  
+  ```tsx
+  onError={(event) => {
+    console.error("Support widget error:", event.error);
+  }}
+  ```
+</ParamField>
+
+### Composition
+
+<ParamField path="children" type="React.ReactNode">
+  Children for composition. Can include:
+  - `<Support.Trigger>` for custom trigger
+  - `<Support.Content>` for custom content positioning  
+  - `<Support.Page>` components for custom routes
+</ParamField>
+
+## Usage Examples
+
+### Controlled Mode
+
+```tsx
+import { Support } from "@cossistant/react";
+import { useState } from "react";
+
+function App() {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <Support
+      open={isOpen}
+      onOpenChange={setIsOpen}
+    />
+  );
+}
+```
+
+### Custom Styling
+
+```tsx
+<Support
+  theme="dark"
+  classNames={{
+    trigger: "bg-purple-600 hover:bg-purple-700",
+    content: "border-purple-200 shadow-2xl"
+  }}
+/>
+```
+
+### Custom Positioning
+
+```tsx
+<Support
+  side="bottom"
+  align="end"
+  sideOffset={8}
+  avoidCollisions={true}
+  collisionPadding={{ bottom: 80 }}
+/>
+```
+
+### With Event Tracking
+
+```tsx
+<Support
+  onConversationStart={(event) => {
+    analytics.track("conversation_started", {
+      conversationId: event.conversationId
+    });
+  }}
+  onMessageSent={(event) => {
+    analytics.track("message_sent", {
+      conversationId: event.conversationId,
+      messageLength: event.message.text?.length
+    });
+  }}
+/>
+```
+
+### With Imperative Handle
+
+```tsx
+import { Support, SupportHandle } from "@cossistant/react";
+import { useRef } from "react";
+
+function App() {
+  const supportRef = useRef<SupportHandle>(null);
+
+  const handleNeedHelp = () => {
+    supportRef.current?.open();
+    supportRef.current?.startConversation("I need help with my order");
+  };
+
+  return (
+    <>
+      <button onClick={handleNeedHelp}>Need Help?</button>
+      <Support ref={supportRef} />
+    </>
+  );
+}
+```
+
+## Compound Components
+
+### Support.Root
+
+Root component for full composition mode. Use when you need complete control over widget structure.
+
+```tsx
+import { Support } from "@cossistant/react";
+
+<Support.Root defaultOpen={false}>
+  <Support.Trigger asChild>
+    <button>Help</button>
+  </Support.Trigger>
+  <Support.Content side="bottom" align="end">
+    <Support.Router />
+  </Support.Content>
+</Support.Root>
+```
+
+### Support.Trigger
+
+Custom trigger component with render props.
+
+```tsx
+<Support>
+  <Support.Trigger className="my-button">
+    {({ isOpen, unreadCount }) => (
+      <span>
+        {isOpen ? "Close" : `Help (${unreadCount})`}
+      </span>
+    )}
+  </Support.Trigger>
+</Support>
+```
+
+**Render Props:**
+
+- `isOpen: boolean` - Whether widget is open
+- `unreadCount: number` - Number of unread messages
+- `isTyping: boolean` - Whether someone is typing
+- `toggle: () => void` - Toggle function
+
+### Support.Content
+
+Custom content wrapper for positioning.
+
+```tsx
+<Support>
+  <Support.Trigger>Help</Support.Trigger>
+  <Support.Content side="bottom" align="end" className="my-content">
+    <Support.Router />
+  </Support.Content>
+</Support>
+```
+
+### Support.Router
+
+Router with all default pages (Home, Conversation, etc.).
+
+```tsx
+<Support.Content>
+  <Support.Router>
+    <Support.Page name="FAQ" component={FAQPage} />
+  </Support.Router>
+</Support.Content>
+```
+
+### Support.Page
+
+Declarative page registration for custom routes.
+
+```tsx
+import { useSupportNavigation } from "@cossistant/react";
+
+const FAQPage = () => {
+  const { goBack } = useSupportNavigation();
+  return (
+    <div>
+      <button onClick={goBack}>← Back</button>
+      <h1>FAQ</h1>
+    </div>
+  );
+};
+
+<Support>
+  <Support.Page name="FAQ" component={FAQPage} />
+  <Support.Page name="SETTINGS" component={SettingsPage} />
+</Support>
+```
+
+### Support.Header
+
+Slot for custom header content.
+
+```tsx
+<Support>
+  <Support.Header>
+    <div className="flex items-center gap-2">
+      <img src="/logo.png" alt="Logo" />
+      <span>Support</span>
+    </div>
+  </Support.Header>
+</Support>
+```
+
+### Support.Footer
+
+Slot for custom footer content.
+
+```tsx
+<Support>
+  <Support.Footer>
+    <div className="text-center text-sm text-gray-500">
+      Powered by Cossistant
+    </div>
+  </Support.Footer>
+</Support>
+```
+
+## Types
+
+### DefaultMessage
+
+```tsx
+type DefaultMessage = {
+  content: string;
+  senderType: "visitor" | "team_member" | "ai";
+  senderId?: string;
+};
+```
+
+### SupportHandle
+
+Imperative handle for refs:
+
+```tsx
+type SupportHandle = {
+  open: () => void;
+  close: () => void;
+  toggle: () => void;
+  navigate: (options: { page: string; params?: RouteParams }) => void;
+  goBack: () => void;
+  openConversation: (conversationId: string) => void;
+  startConversation: (initialMessage?: string) => void;
+  goHome: () => void;
+};
+```
+
+### Event Types
+
+```tsx
+type ConversationStartEvent = {
+  type: "conversationStart";
+  conversationId: string;
+  conversation?: Conversation;
+};
+
+type ConversationEndEvent = {
+  type: "conversationEnd";
+  conversationId: string;
+  conversation?: Conversation;
+};
+
+type MessageSentEvent = {
+  type: "messageSent";
+  conversationId: string;
+  message: TimelineItem;
+};
+
+type MessageReceivedEvent = {
+  type: "messageReceived";
+  conversationId: string;
+  message: TimelineItem;
+};
+
+type ErrorEvent = {
+  type: "error";
+  error: Error;
+  context?: string;
+};
+```
+
+## Advanced Patterns
+
+### Multiple Widgets
+
+You can render multiple Support widgets with different configurations:
+
+```tsx
+<>
+  {/* Sales widget */}
+  <SupportProvider publicKey="pk_sales_...">
+    <Support
+      quickOptions={["Pricing", "Demo", "Features"]}
+      classNames={{ trigger: "bg-blue-600" }}
+    />
+  </SupportProvider>
+
+  {/* Support widget */}
+  <SupportProvider publicKey="pk_support_...">
+    <Support
+      quickOptions={["Bug Report", "Feature Request"]}
+      classNames={{ trigger: "bg-green-600" }}
+    />
+  </SupportProvider>
+</>
+```
+
+### Conditional Rendering
+
+Show widget only for authenticated users:
+
+```tsx
+function App() {
+  const { user } = useAuth();
+
+  return (
+    <div>
+      {user && <Support />}
+    </div>
+  );
+}
+```
+
+### Integration with Analytics
+
+```tsx
+import { Support } from "@cossistant/react";
+import { analytics } from "./analytics";
+
+<Support
+  onConversationStart={(event) => {
+    analytics.track("Support Conversation Started", {
+      conversationId: event.conversationId,
+      timestamp: new Date().toISOString()
+    });
+  }}
+  onConversationEnd={(event) => {
+    analytics.track("Support Conversation Ended", {
+      conversationId: event.conversationId
+    });
+  }}
+  onMessageSent={(event) => {
+    analytics.track("Support Message Sent", {
+      conversationId: event.conversationId,
+      hasAttachments: event.message.parts?.some(
+        p => p.type === "image" || p.type === "file"
+      )
+    });
+  }}
+  onError={(event) => {
+    analytics.track("Support Widget Error", {
+      error: event.error.message,
+      context: event.context
+    });
+  }}
+/>
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Hooks" icon="code" href="/sdk/hooks">
+    Use hooks for programmatic control
+  </Card>
+  <Card title="Primitives" icon="cube" href="/sdk/primitives">
+    Build custom UIs with headless components
+  </Card>
+  <Card title="Customization" icon="palette" href="/customization">
+    Learn about theming and styling
+  </Card>
+  <Card title="Events" icon="bolt" href="/customization/events">
+    Deep dive into the event system
+  </Card>
+</CardGroup>

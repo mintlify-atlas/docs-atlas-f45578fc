@@ -1,0 +1,267 @@
+---
+title: Next.js Quickstart
+description: Get Cossistant's AI-powered support widget running in your Next.js app in under 5 minutes
+---
+
+<Steps>
+  <Step title="Install the package">
+    Install `@cossistant/next` using your preferred package manager:
+
+    <CodeGroup>
+      ```bash npm
+      npm install @cossistant/next
+      ```
+
+      ```bash yarn
+      yarn add @cossistant/next
+      ```
+
+      ```bash pnpm
+      pnpm add @cossistant/next
+      ```
+
+      ```bash bun
+      bun add @cossistant/next
+      ```
+    </CodeGroup>
+
+    <Note>
+      The `@cossistant/next` package wraps `@cossistant/react` with Next.js-specific optimizations and "use client" directives for the App Router.
+    </Note>
+  </Step>
+
+  <Step title="Add your API key">
+    Create a `.env.local` file in your project root and add your Cossistant public API key:
+
+    ```bash .env.local
+    NEXT_PUBLIC_COSSISTANT_API_KEY=pk_test_xxxx
+    ```
+
+    <Warning>
+      The key **must** be prefixed with `NEXT_PUBLIC_` to be accessible in the browser. Get your API key from the [Cossistant Dashboard](https://app.cossistant.com/settings/api-keys).
+    </Warning>
+  </Step>
+
+  <Step title="Wrap your app with SupportProvider">
+    Add the `SupportProvider` to your root layout to make support features available throughout your app:
+
+    ```tsx app/layout.tsx
+    import { SupportProvider } from "@cossistant/next";
+import "./globals.css";
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <body>
+        <SupportProvider>{children}</SupportProvider>
+      </body>
+    </html>
+  );
+}
+    ```
+
+    <Info>
+      The `SupportProvider` automatically reads `process.env.NEXT_PUBLIC_COSSISTANT_API_KEY`. You can also pass it explicitly via the `publicKey` prop.
+    </Info>
+  </Step>
+
+  <Step title="Import styles">
+    Choose one of two styling approaches based on your setup:
+
+    <Tabs>
+      <Tab title="Tailwind v4">
+        If you're using Tailwind CSS v4, import the source CSS for full theme customization:
+
+        ```css app/globals.css
+        @import "tailwindcss";
+
+        @import "@cossistant/next/support.css";
+        ```
+
+        This gives you access to Tailwind's theme system and lets you customize the widget using CSS variables.
+      </Tab>
+
+      <Tab title="Plain CSS">
+        For projects without Tailwind or using Tailwind v3, import the pre-compiled styles:
+
+        ```tsx app/layout.tsx
+        import { SupportProvider } from "@cossistant/next";
+import "@cossistant/next/styles.css";
+import "./globals.css";
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <body>
+        <SupportProvider>{children}</SupportProvider>
+      </body>
+    </html>
+  );
+}
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Add the Support widget">
+    Drop the `Support` component anywhere inside the provider to render the floating widget:
+
+    ```tsx app/page.tsx
+    import { Support } from "@cossistant/next";
+
+export default function Page() {
+  return (
+    <main>
+      <h1>Welcome to my app</h1>
+      <p>You are ready to chat with support!</p>
+      <Support />
+    </main>
+  );
+}
+    ```
+
+    The widget will appear as a floating button in the bottom-right corner. Click it to open the chat interface.
+  </Step>
+
+  <Step title="Identify logged-in users (optional)">
+    If your app has authenticated users, identify them so your support team knows who they're talking to:
+
+    ```tsx app/(app)/layout.tsx
+    import { IdentifySupportVisitor } from "@cossistant/next";
+
+export default async function AppLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  // Get the current user from your auth system
+  const user = await getCurrentUser();
+
+  return (
+    <>
+      <IdentifySupportVisitor
+        externalId={user.id}
+        email={user.email}
+        name={user.name}
+      />
+      {children}
+    </>
+  );
+}
+    ```
+
+    <Info>
+      `IdentifySupportVisitor` accepts:
+      - `externalId` - Your internal user ID
+      - `email` - User's email address
+      - `name` - User's display name (optional)
+      - `image` - Avatar URL (optional)
+      - `metadata` - Custom key-value pairs (optional)
+    </Info>
+  </Step>
+
+  <Step title="Customize default messages (optional)">
+    Display custom welcome messages and quick reply options using `SupportConfig`:
+
+    ```tsx app/page.tsx
+    import { Support, SupportConfig } from "@cossistant/next";
+import { type DefaultMessage, SenderType } from "@cossistant/types";
+
+const user: { name: string | null } = {
+  name: "Jane Doe",
+};
+
+const defaultMessages: DefaultMessage[] = [
+  {
+    content: `Hi ${user.name ?? "there"}, anything I can help with?`,
+    senderType: SenderType.TEAM_MEMBER,
+  },
+];
+
+const quickOptions: string[] = [
+  "How do I reset my password?",
+  "Where can I find my invoices?",
+  "How do I upgrade my plan?",
+];
+
+export default function Page() {
+  return (
+    <>
+      <SupportConfig
+        defaultMessages={defaultMessages}
+        quickOptions={quickOptions}
+      />
+      <Support />
+    </>
+  );
+}
+    ```
+
+    <Note>
+      `defaultMessages` appear before a conversation starts. Once the user sends their first message, these are replaced with the actual conversation timeline.
+    </Note>
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Support Component" icon="puzzle-piece" href="/sdk/support-component">
+    Learn about all the props and customization options
+  </Card>
+  <Card title="Visitor Identification" icon="user" href="/integrations/identify-visitors">
+    Deep dive into identifying users and attaching metadata
+  </Card>
+  <Card title="Theming" icon="palette" href="/customization/theming">
+    Customize colors, fonts, and styles to match your brand
+  </Card>
+  <Card title="Hooks" icon="code" href="/sdk/hooks">
+    Use React hooks to build custom support experiences
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Widget not appearing">
+    - Verify your API key is correct and starts with `pk_`
+    - Check that the environment variable is prefixed with `NEXT_PUBLIC_`
+    - Ensure `SupportProvider` wraps your entire app in `layout.tsx`
+    - Look for errors in the browser console
+    - Restart your Next.js dev server after adding environment variables
+  </Accordion>
+
+  <Accordion title="Styles not loading">
+    - Make sure you've imported either `@cossistant/next/support.css` or `@cossistant/next/styles.css`
+    - For Tailwind v4, verify the `@import` is at the top of your CSS file
+    - For plain CSS, verify the import is in your root layout
+    - Check that your build process includes CSS files
+  </Accordion>
+
+  <Accordion title="TypeScript errors">
+    - Install `@types/react` and `@types/react-dom` if not already present
+    - Ensure your `tsconfig.json` has `"moduleResolution": "bundler"` or `"node16"`
+    - Update to Next.js 13.5.2 or higher (Next.js 14+ recommended)
+  </Accordion>
+
+  <Accordion title="Build errors in production">
+    - Ensure `"use client"` directives are preserved during build
+    - Verify all environment variables are set in your deployment platform
+    - Check that your build output includes the CSS files
+    - For Vercel/Netlify, add `NEXT_PUBLIC_COSSISTANT_API_KEY` to environment variables
+  </Accordion>
+</AccordionGroup>
+
+## Example Repository
+
+<Card title="Next.js + Tailwind Example" icon="github" href="https://github.com/cossistantcom/cossistant/tree/main/examples/nextjs-tailwind">
+  View a complete working example with Next.js 15, Tailwind CSS v4, and TypeScript
+</Card>

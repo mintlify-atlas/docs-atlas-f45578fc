@@ -1,0 +1,524 @@
+---
+title: Routing & Custom Pages
+description: Add custom pages and navigate between them with type-safe routing.
+---
+
+The Cossistant support widget includes a built-in routing system that allows you to add custom pages alongside the default pages, with full TypeScript support for type-safe navigation.
+
+## Built-in Pages
+
+The widget comes with four default pages:
+
+| Page | Route Name | Parameters | Description |
+|------|------------|------------|-------------|
+| Home | `HOME` | None | Main landing page with greeting and conversation history |
+| Articles | `ARTICLES` | None | Knowledge base articles and FAQ |
+| Conversation | `CONVERSATION` | `{ conversationId: string, initialMessage?: string }` | Active conversation view |
+| Conversation History | `CONVERSATION_HISTORY` | None | List of past conversations |
+
+## Adding Custom Pages
+
+Add custom pages using the declarative `<Support.Page>` component:
+
+<Tabs>
+  <Tab title="Basic Page">
+    ```tsx
+    import { Support } from '@cossistant/react';
+    
+    // 1. Define your page component
+    const FAQPage = () => {
+      return (
+        <div className="p-6">
+          <h1 className="text-2xl font-bold">Frequently Asked Questions</h1>
+          <div className="space-y-4 mt-4">
+            <div>
+              <h3 className="font-semibold">How do I reset my password?</h3>
+              <p className="text-muted">Visit the settings page...</p>
+            </div>
+          </div>
+        </div>
+      );
+    };
+    
+    // 2. Register the page
+    <Support>
+      <Support.Page name="FAQ" component={FAQPage} />
+    </Support>
+    ```
+  </Tab>
+  <Tab title="With Type Safety">
+    ```tsx
+    import { Support } from '@cossistant/react';
+    
+    // 1. Extend RouteRegistry for type safety
+    declare module '@cossistant/core' {
+      interface RouteRegistry {
+        FAQ: undefined;
+        SETTINGS: { section: string };
+      }
+    }
+    
+    // 2. Create typed page components
+    const FAQPage = () => {
+      const { navigate } = useSupportNavigation();
+      
+      return (
+        <div className="p-6">
+          <h1>FAQ</h1>
+          <button onClick={() => navigate({ page: 'SETTINGS', params: { section: 'account' } })}>
+            Go to Settings
+          </button>
+        </div>
+      );
+    };
+    
+    const SettingsPage = ({ params }: { params?: { section: string } }) => {
+      return (
+        <div className="p-6">
+          <h1>Settings</h1>
+          <p>Current section: {params?.section}</p>
+        </div>
+      );
+    };
+    
+    // 3. Register pages
+    <Support>
+      <Support.Page name="FAQ" component={FAQPage} />
+      <Support.Page name="SETTINGS" component={SettingsPage} />
+    </Support>
+    ```
+  </Tab>
+  <Tab title="With Navigation">
+    ```tsx
+    import { Support, useSupportNavigation } from '@cossistant/react';
+    
+    const HelpCenterPage = () => {
+      const { navigate, goBack, canGoBack } = useSupportNavigation();
+      
+      return (
+        <div className="p-6">
+          {canGoBack && (
+            <button onClick={goBack} className="mb-4">
+              ← Back
+            </button>
+          )}
+          
+          <h1 className="text-2xl font-bold mb-6">Help Center</h1>
+          
+          <div className="space-y-2">
+            <button
+              onClick={() => navigate({ page: 'FAQ' })}
+              className="w-full text-left p-4 border rounded"
+            >
+              FAQ
+            </button>
+            <button
+              onClick={() => navigate({ page: 'CONVERSATION_HISTORY' })}
+              className="w-full text-left p-4 border rounded"
+            >
+              Past Conversations
+            </button>
+          </div>
+        </div>
+      );
+    };
+    
+    <Support>
+      <Support.Page name="HELP_CENTER" component={HelpCenterPage} />
+    </Support>
+    ```
+  </Tab>
+</Tabs>
+
+## Navigation Hook
+
+Use the `useSupportNavigation` hook to navigate between pages:
+
+```tsx
+import { useSupportNavigation } from '@cossistant/react/support';
+
+function CustomPage() {
+  const {
+    navigate,    // Navigate to a page (adds to history)
+    replace,     // Replace current page (no history)
+    goBack,      // Go to previous page
+    canGoBack,   // Can navigate back?
+    current,     // Current navigation state
+    page,        // Current page name
+    params,      // Current page params
+  } = useSupportNavigation();
+  
+  return (
+    <div>
+      {canGoBack && <button onClick={goBack}>← Back</button>}
+      <p>Current page: {page}</p>
+    </div>
+  );
+}
+```
+
+### Navigation Methods
+
+<Tabs>
+  <Tab title="navigate()">
+    Navigate to a new page and add it to the history stack:
+    
+    ```tsx
+    const { navigate } = useSupportNavigation();
+    
+    // Navigate to a page without params
+    navigate({ page: 'HOME' });
+    
+    // Navigate to a page with params
+    navigate({
+      page: 'CONVERSATION',
+      params: {
+        conversationId: 'abc123',
+        initialMessage: 'Hello!',
+      },
+    });
+    ```
+  </Tab>
+  <Tab title="replace()">
+    Replace the current page without adding to history:
+    
+    ```tsx
+    const { replace } = useSupportNavigation();
+    
+    // Replace current page
+    replace({ page: 'HOME' });
+    
+    // Useful for redirect scenarios
+    if (unauthorized) {
+      replace({ page: 'ERROR', params: { code: 401 } });
+    }
+    ```
+  </Tab>
+  <Tab title="goBack()">
+    Navigate to the previous page in history:
+    
+    ```tsx
+    const { goBack, canGoBack } = useSupportNavigation();
+    
+    // Always check if you can go back
+    if (canGoBack) {
+      goBack();
+    }
+    
+    // Or in JSX
+    {canGoBack && (
+      <button onClick={goBack}>Back</button>
+    )}
+    ```
+  </Tab>
+</Tabs>
+
+## Type-Safe Routing
+
+Extend the `RouteRegistry` interface for full type safety:
+
+```tsx
+// types/routing.d.ts
+declare module '@cossistant/core' {
+  interface RouteRegistry {
+    // Page with no params
+    FAQ: undefined;
+    
+    // Page with required params
+    SETTINGS: { section: string };
+    
+    // Page with optional params
+    PROFILE: { tab?: string };
+    
+    // Page with multiple params
+    ARTICLE: { articleId: string; highlight?: string };
+  }
+}
+```
+
+Now TypeScript will enforce correct usage:
+
+```tsx
+const { navigate } = useSupportNavigation();
+
+// ✅ Valid
+navigate({ page: 'FAQ' });
+navigate({ page: 'SETTINGS', params: { section: 'account' } });
+navigate({ page: 'PROFILE' });
+navigate({ page: 'PROFILE', params: { tab: 'security' } });
+
+// ❌ TypeScript errors
+navigate({ page: 'UNKNOWN_PAGE' }); // Page doesn't exist
+navigate({ page: 'SETTINGS' }); // Missing required params
+navigate({ page: 'SETTINGS', params: {} }); // Missing required params
+navigate({ page: 'FAQ', params: { invalid: true } }); // Invalid params
+```
+
+## Building Custom Pages
+
+Use the exported components and hooks to build rich custom pages:
+
+<Tabs>
+  <Tab title="With Header">
+    ```tsx
+    import { useSupportNavigation } from '@cossistant/react/support';
+    
+    const SettingsPage = () => {
+      const { goBack, canGoBack } = useSupportNavigation();
+      
+      return (
+        <div className="flex flex-col h-full">
+          {/* Header */}
+          <div className="border-b px-4 py-3 flex items-center gap-3">
+            {canGoBack && (
+              <button onClick={goBack} className="p-2">
+                ←
+              </button>
+            )}
+            <h1 className="font-semibold">Settings</h1>
+          </div>
+          
+          {/* Content */}
+          <div className="flex-1 overflow-auto p-6">
+            <div className="space-y-6">
+              <div>
+                <h2 className="font-medium mb-2">Notifications</h2>
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" />
+                  <span>Email notifications</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+    ```
+  </Tab>
+  <Tab title="With Localization">
+    ```tsx
+    import { Text, useSupportText } from '@cossistant/react/support';
+    
+    const FAQPage = () => {
+      const text = useSupportText();
+      
+      return (
+        <div className="p-6">
+          <h1 className="text-2xl font-bold mb-6">
+            <Text textKey="component.navigation.articles" />
+          </h1>
+          
+          <button className="px-4 py-2 bg-primary text-white rounded">
+            {text('common.actions.askQuestion')}
+          </button>
+        </div>
+      );
+    };
+    ```
+  </Tab>
+  <Tab title="With Data Fetching">
+    ```tsx
+    import { useEffect, useState } from 'react';
+    import { useSupportNavigation } from '@cossistant/react/support';
+    
+    const ArticlePage = ({ params }: { params?: { articleId: string } }) => {
+      const [article, setArticle] = useState(null);
+      const [loading, setLoading] = useState(true);
+      const { goBack } = useSupportNavigation();
+      
+      useEffect(() => {
+        if (!params?.articleId) return;
+        
+        fetchArticle(params.articleId)
+          .then(setArticle)
+          .finally(() => setLoading(false));
+      }, [params?.articleId]);
+      
+      if (loading) {
+        return <div className="p-6">Loading...</div>;
+      }
+      
+      if (!article) {
+        return (
+          <div className="p-6">
+            <p>Article not found</p>
+            <button onClick={goBack}>Go back</button>
+          </div>
+        );
+      }
+      
+      return (
+        <div className="p-6">
+          <button onClick={goBack} className="mb-4">← Back</button>
+          <h1 className="text-2xl font-bold mb-4">{article.title}</h1>
+          <div dangerouslySetInnerHTML={{ __html: article.content }} />
+        </div>
+      );
+    };
+    ```
+  </Tab>
+</Tabs>
+
+## Router Component
+
+For advanced use cases, you can use the `<Support.Router>` component directly:
+
+```tsx
+import { Support } from '@cossistant/react';
+
+<Support>
+  <Support.Trigger>Help</Support.Trigger>
+  <Support.Content>
+    <Support.Router>
+      <Support.Page name="FAQ" component={FAQPage} />
+      <Support.Page name="SETTINGS" component={SettingsPage} />
+    </Support.Router>
+  </Support.Content>
+</Support>
+```
+
+## Complete Example
+
+Here's a complete example with multiple custom pages:
+
+```tsx
+import { Support, useSupportNavigation } from '@cossistant/react';
+
+// 1. Extend types
+declare module '@cossistant/core' {
+  interface RouteRegistry {
+    HELP_CENTER: undefined;
+    FAQ: undefined;
+    SETTINGS: { section: string };
+    ARTICLE: { articleId: string };
+  }
+}
+
+// 2. Create page components
+const HelpCenterPage = () => {
+  const { navigate } = useSupportNavigation();
+  
+  return (
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-6">Help Center</h1>
+      <div className="space-y-2">
+        <button
+          onClick={() => navigate({ page: 'FAQ' })}
+          className="w-full text-left p-4 border rounded"
+        >
+          FAQ
+        </button>
+        <button
+          onClick={() => navigate({ page: 'SETTINGS', params: { section: 'general' } })}
+          className="w-full text-left p-4 border rounded"
+        >
+          Settings
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const FAQPage = () => {
+  const { goBack, navigate } = useSupportNavigation();
+  
+  const articles = [
+    { id: '1', title: 'How to reset password' },
+    { id: '2', title: 'Account settings' },
+  ];
+  
+  return (
+    <div className="p-6">
+      <button onClick={goBack} className="mb-4">← Back</button>
+      <h1 className="text-2xl font-bold mb-6">FAQ</h1>
+      <div className="space-y-2">
+        {articles.map((article) => (
+          <button
+            key={article.id}
+            onClick={() => navigate({ page: 'ARTICLE', params: { articleId: article.id } })}
+            className="w-full text-left p-4 border rounded"
+          >
+            {article.title}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const SettingsPage = ({ params }: { params?: { section: string } }) => {
+  const { goBack } = useSupportNavigation();
+  
+  return (
+    <div className="p-6">
+      <button onClick={goBack} className="mb-4">← Back</button>
+      <h1 className="text-2xl font-bold mb-4">Settings</h1>
+      <p>Section: {params?.section}</p>
+    </div>
+  );
+};
+
+const ArticlePage = ({ params }: { params?: { articleId: string } }) => {
+  const { goBack } = useSupportNavigation();
+  
+  return (
+    <div className="p-6">
+      <button onClick={goBack} className="mb-4">← Back</button>
+      <h1 className="text-2xl font-bold mb-4">Article {params?.articleId}</h1>
+      <div>Article content goes here...</div>
+    </div>
+  );
+};
+
+// 3. Register and use
+export default function App() {
+  return (
+    <Support>
+      <Support.Page name="HELP_CENTER" component={HelpCenterPage} />
+      <Support.Page name="FAQ" component={FAQPage} />
+      <Support.Page name="SETTINGS" component={SettingsPage} />
+      <Support.Page name="ARTICLE" component={ArticlePage} />
+    </Support>
+  );
+}
+```
+
+## Best Practices
+
+<Accordion title="Use type augmentation">
+  Always extend `RouteRegistry` when adding custom pages for full type safety:
+  
+  ```typescript
+  declare module '@cossistant/core' {
+    interface RouteRegistry {
+      MY_PAGE: { myParam: string };
+    }
+  }
+  ```
+</Accordion>
+
+<Accordion title="Check canGoBack before calling goBack">
+  Always verify the history stack before navigating back:
+  
+  ```tsx
+  const { goBack, canGoBack } = useSupportNavigation();
+  
+  if (canGoBack) {
+    goBack();
+  }
+  ```
+</Accordion>
+
+<Accordion title="Use replace for redirects">
+  Use `replace()` instead of `navigate()` when redirecting to avoid adding unnecessary history entries:
+  
+  ```tsx
+  if (error) {
+    replace({ page: 'ERROR' });
+  }
+  ```
+</Accordion>
+
+<Accordion title="Keep page components focused">
+  Each custom page should have a single responsibility. Use composition to build complex UIs.
+</Accordion>

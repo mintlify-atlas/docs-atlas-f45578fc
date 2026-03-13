@@ -1,0 +1,395 @@
+---
+title: Next.js SDK
+description: Next.js-optimized SDK with Server Components support and automatic configuration detection.
+icon: "triangle"
+---
+
+## Overview
+
+The `@cossistant/next` package is a thin wrapper around `@cossistant/react` optimized for Next.js applications. It includes:
+
+- **"use client" directives** for all interactive components
+- **Same API as React SDK** with Next.js conventions
+- **Automatic env detection** for `NEXT_PUBLIC_COSSISTANT_API_KEY`
+- **Server Component compatible** provider setup
+
+## Installation
+
+<CodeGroup>
+```bash npm
+npm install @cossistant/next
+```
+
+```bash yarn
+yarn add @cossistant/next
+```
+
+```bash pnpm
+pnpm add @cossistant/next
+```
+
+```bash bun
+bun add @cossistant/next
+```
+</CodeGroup>
+
+## Quick Start
+
+### 1. Set Environment Variable
+
+Create a `.env.local` file in your project root:
+
+```bash .env.local
+NEXT_PUBLIC_COSSISTANT_API_KEY=pk_live_...
+```
+
+### 2. Add Provider to Root Layout
+
+```tsx app/layout.tsx
+import { SupportProvider } from "@cossistant/next";
+import "@cossistant/next/styles.css";
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="en">
+      <body>
+        <SupportProvider>
+          {children}
+        </SupportProvider>
+      </body>
+    </html>
+  );
+}
+```
+
+### 3. Add Support Widget
+
+Add the widget to any page or layout:
+
+```tsx app/page.tsx
+import { Support } from "@cossistant/next";
+
+export default function HomePage() {
+  return (
+    <div>
+      <h1>Welcome</h1>
+      <Support />
+    </div>
+  );
+}
+```
+
+## CSS Import Options
+
+### Tailwind v4 Source
+
+```tsx app/layout.tsx
+import "@cossistant/next/support.css";
+```
+
+### Plain CSS (Recommended)
+
+```tsx app/layout.tsx
+import "@cossistant/next/styles.css";
+```
+
+<Note>
+The plain CSS bundle works best with Next.js. Use Tailwind v4 source only if you need deep customization.
+</Note>
+
+## Identifying Visitors in Server Components
+
+Use `<IdentifySupportVisitor />` in Server Components to identify users:
+
+```tsx app/dashboard/layout.tsx
+import { IdentifySupportVisitor } from "@cossistant/next";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
+
+export default async function DashboardLayout({ children }) {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  return (
+    <div>
+      {session?.user && (
+        <IdentifySupportVisitor
+          externalId={session.user.id}
+          email={session.user.email}
+          name={session.user.name}
+          image={session.user.image}
+          metadata={{
+            plan: session.user.plan,
+            signupDate: session.user.createdAt,
+          }}
+        />
+      )}
+      {children}
+    </div>
+  );
+}
+```
+
+## Page-Specific Configuration
+
+Use `<SupportConfig />` to customize messages per route:
+
+```tsx app/pricing/page.tsx
+import { SupportConfig } from "@cossistant/next";
+import { SenderType } from "@cossistant/types";
+
+export default function PricingPage() {
+  return (
+    <>
+      <SupportConfig
+        defaultMessages={[
+          {
+            content: "Questions about pricing? I'm here to help!",
+            senderType: SenderType.TeamMember,
+          },
+        ]}
+        quickOptions={[
+          "How does billing work?",
+          "What's included in Pro?",
+          "Can I cancel anytime?",
+        ]}
+      />
+      <h1>Pricing</h1>
+    </>
+  );
+}
+```
+
+## Client Component Usage
+
+Use hooks in Client Components:
+
+```tsx "use client"
+import { useSupport } from "@cossistant/next";
+
+export function CustomSupportButton() {
+  const { isOpen, toggle, unreadCount } = useSupport();
+
+  return (
+    <button
+      onClick={toggle}
+      className="relative rounded-lg bg-primary px-4 py-2 text-white"
+    >
+      Support
+      {unreadCount > 0 && (
+        <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs">
+          {unreadCount}
+        </span>
+      )}
+    </button>
+  );
+}
+```
+
+## Programmatic Control
+
+Use hooks for imperative control:
+
+```tsx "use client"
+import { useSupportHandle } from "@cossistant/next/support";
+
+export function HelpButton() {
+  const support = useSupportHandle();
+
+  return (
+    <button
+      onClick={() => support?.startConversation("I need help")}
+    >
+      Need Help?
+    </button>
+  );
+}
+```
+
+## Custom Pages
+
+Add custom pages to the widget router:
+
+```tsx "use client"
+import { Support, useSupportNavigation } from "@cossistant/next";
+
+const FAQPage = () => {
+  const { goBack } = useSupportNavigation();
+  return (
+    <div className="p-4">
+      <button onClick={goBack}>← Back</button>
+      <h1>FAQ</h1>
+    </div>
+  );
+};
+
+export function CustomSupport() {
+  return (
+    <Support>
+      <Support.Page name="FAQ" component={FAQPage} />
+    </Support>
+  );
+}
+```
+
+## API Reference
+
+All components and hooks from `@cossistant/react` are re-exported with "use client" directives:
+
+```tsx
+import {
+  Support,
+  SupportProvider,
+  IdentifySupportVisitor,
+  SupportConfig,
+  useSupport,
+  useVisitor,
+  useSendMessage,
+  Primitives,
+} from "@cossistant/next";
+```
+
+## Package Exports
+
+Granular exports for optimal tree-shaking:
+
+```tsx
+import { Support, SupportProvider } from "@cossistant/next";
+import { IdentifySupportVisitor } from "@cossistant/next/identify-visitor";
+import { SupportConfig } from "@cossistant/next/support-config";
+import { useSupport, useVisitor } from "@cossistant/next/hooks";
+import * as Primitives from "@cossistant/next/primitives";
+import { useSupportHandle } from "@cossistant/next/support";
+```
+
+## Environment Variables
+
+The SDK automatically detects:
+
+```bash .env.local
+NEXT_PUBLIC_COSSISTANT_API_KEY=pk_live_...
+```
+
+Or pass explicitly:
+
+```tsx
+<SupportProvider publicKey="pk_live_...">
+```
+
+## TypeScript
+
+All types are exported:
+
+```tsx
+import type {
+  SupportProps,
+  SupportProviderProps,
+  DefaultMessage,
+  VisitorMetadata,
+  SupportHandle,
+} from "@cossistant/next";
+```
+
+## Comparison with React SDK
+
+| Feature | @cossistant/react | @cossistant/next |
+|---------|-------------------|------------------|
+| React 18+ | ✅ | ✅ |
+| Next.js 13+ | ✅ | ✅ |
+| "use client" | Manual | Automatic |
+| Server Components | Manual wrapper | Built-in |
+| Env detection | VITE_, REACT_APP_ | NEXT_PUBLIC_ |
+| Bundle size | Same | Same |
+
+<Tip>
+Use `@cossistant/next` for Next.js projects to avoid "use client" boilerplate.
+</Tip>
+
+## Next.js Version Support
+
+- ✅ Next.js 13.5.2+
+- ✅ Next.js 14.x
+- ✅ Next.js 15.x
+- ✅ Next.js 16.x (canary)
+
+## App Router vs Pages Router
+
+### App Router (Recommended)
+
+```tsx app/layout.tsx
+import { SupportProvider, Support } from "@cossistant/next";
+import "@cossistant/next/styles.css";
+
+export default function RootLayout({ children }) {
+  return (
+    <html>
+      <body>
+        <SupportProvider>
+          {children}
+          <Support />
+        </SupportProvider>
+      </body>
+    </html>
+  );
+}
+```
+
+### Pages Router
+
+```tsx pages/_app.tsx
+import { SupportProvider, Support } from "@cossistant/next";
+import "@cossistant/next/styles.css";
+
+export default function App({ Component, pageProps }) {
+  return (
+    <SupportProvider>
+      <Component {...pageProps} />
+      <Support />
+    </SupportProvider>
+  );
+}
+```
+
+## Troubleshooting
+
+### "use client" errors
+
+If you see "use client" errors, make sure you're importing from `@cossistant/next`, not `@cossistant/react`.
+
+### Environment variable not found
+
+Ensure your variable starts with `NEXT_PUBLIC_`:
+
+```bash
+# ❌ Wrong
+COSSISTANT_API_KEY=...
+
+# ✅ Correct
+NEXT_PUBLIC_COSSISTANT_API_KEY=...
+```
+
+### CSS not loading
+
+Import CSS in your root layout:
+
+```tsx
+import "@cossistant/next/styles.css";
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Support Component" icon="message" href="/sdk/support-component">
+    Learn about the Support component props and features
+  </Card>
+  <Card title="Hooks" icon="code" href="/sdk/hooks">
+    Explore all available React hooks
+  </Card>
+  <Card title="Primitives" icon="cube" href="/sdk/primitives">
+    Build custom UIs with headless primitives
+  </Card>
+  <Card title="React SDK" icon="react" href="/sdk/react-sdk">
+    View the base React SDK documentation
+  </Card>
+</CardGroup>

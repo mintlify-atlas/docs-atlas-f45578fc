@@ -1,0 +1,746 @@
+---
+title: Hooks
+description: React hooks for programmatic access to support widget state, navigation, visitor management, and real-time features.
+icon: code
+---
+
+## Overview
+
+Cossistant provides comprehensive React hooks for building custom support experiences. These hooks give you programmatic control over:
+
+- **Widget State** - Open/close, size, and configuration
+- **Navigation** - Programmatic routing between pages
+- **Visitor Management** - Identification and metadata
+- **Conversations** - Create, list, and manage conversations
+- **Messages** - Send messages with file attachments
+- **Real-time** - Typing indicators, seen status, and live updates
+
+## Core Hooks
+
+### useSupport
+
+Access the complete support context including visitor, agents, and widget state.
+
+```tsx
+import { useSupport } from "@cossistant/react";
+
+function CustomButton() {
+  const {
+    website,
+    visitor,
+    isOpen,
+    toggle,
+    unreadCount,
+    availableHumanAgents,
+    availableAIAgents,
+    client,
+  } = useSupport();
+
+  return (
+    <button onClick={toggle}>
+      Support ({unreadCount})
+    </button>
+  );
+}
+```
+
+**Returns:**
+
+- `website` - Website configuration and settings
+- `visitor` - Current visitor with locale
+- `isOpen` - Whether widget is open
+- `open()` - Open the widget
+- `close()` - Close the widget
+- `toggle()` - Toggle open/closed
+- `unreadCount` - Number of unread messages
+- `availableHumanAgents` - List of online human agents
+- `availableAIAgents` - List of AI agents
+- `client` - CossistantClient instance
+- `isLoading` - Website data loading state
+- `error` - Website load error
+- `size` - Widget size configuration
+
+### useVisitor
+
+Identify visitors and manage contact metadata.
+
+<Note>
+Metadata is stored on **contacts**, not visitors. You must call `identify()` before `setVisitorMetadata()` will work.
+</Note>
+
+```tsx
+import { useVisitor } from "@cossistant/react";
+
+function AuthHandler({ user }) {
+  const { visitor, identify, setVisitorMetadata } = useVisitor();
+
+  useEffect(() => {
+    if (user && !visitor?.contact) {
+      identify({
+        externalId: user.id,
+        email: user.email,
+        name: user.name,
+        image: user.avatar,
+      });
+    }
+  }, [user, visitor?.contact, identify]);
+
+  return null;
+}
+```
+
+**Returns:**
+
+- `visitor` - Current visitor object (includes contact if identified)
+- `identify(params)` - Convert anonymous visitor to identified contact
+  - `params.externalId` - Your internal user ID
+  - `params.email` - User's email
+  - `params.name` - Display name
+  - `params.image` - Avatar URL
+  - `params.metadata` - Initial metadata
+- `setVisitorMetadata(metadata)` - Update contact metadata
+
+**Update metadata programmatically:**
+
+```tsx
+function UpgradeButton() {
+  const { setVisitorMetadata } = useVisitor();
+
+  const handleUpgrade = async () => {
+    await upgradeToPro();
+    
+    await setVisitorMetadata({
+      plan: "pro",
+      upgradedAt: new Date().toISOString(),
+      mrr: 99,
+    });
+  };
+
+  return <button onClick={handleUpgrade}>Upgrade</button>;
+}
+```
+
+## Widget Control Hooks
+
+### useSupportConfig
+
+Access and control widget visibility and configuration.
+
+```tsx
+import { useSupportConfig } from "@cossistant/react/support";
+
+function CustomToggle() {
+  const { isOpen, open, close, toggle, size } = useSupportConfig();
+
+  return (
+    <button onClick={toggle}>
+      {isOpen ? "Close" : "Open"} Support
+    </button>
+  );
+}
+```
+
+**Returns:**
+
+- `isOpen` - Whether widget is open
+- `size` - Widget size ("normal" | "larger")
+- `open()` - Open the widget
+- `close()` - Close the widget  
+- `toggle()` - Toggle open/closed
+
+### useSupportNavigation
+
+Navigate between widget pages programmatically.
+
+```tsx
+import { useSupportNavigation } from "@cossistant/react/support";
+
+function NavigationButtons() {
+  const { page, navigate, goBack, canGoBack } = useSupportNavigation();
+
+  return (
+    <div>
+      {canGoBack && <button onClick={goBack}>← Back</button>}
+      <span>Current: {page}</span>
+      <button onClick={() => navigate({ page: "HOME" })}>
+        Home
+      </button>
+      <button onClick={() => navigate({ 
+        page: "CONVERSATION",
+        params: { conversationId: "conv_123" }
+      })}>
+        Open Conversation
+      </button>
+    </div>
+  );
+}
+```
+
+**Returns:**
+
+- `current` - Current navigation state with page and params
+- `page` - Current page name
+- `params` - Current page parameters
+- `previousPages` - Navigation history stack
+- `canGoBack` - Whether history exists to go back
+- `navigate(options)` - Navigate to page (pushes to history)
+- `replace(options)` - Navigate to page (replaces current)
+- `goBack()` - Go back to previous page
+
+### useSupportHandle
+
+Access the imperative handle from within the widget tree.
+
+```tsx
+import { useSupportHandle } from "@cossistant/react/support";
+
+function HelpButton() {
+  const support = useSupportHandle();
+
+  return (
+    <button onClick={() => support?.startConversation("I need help")}>
+      Need Help?
+    </button>
+  );
+}
+```
+
+**Returns:**
+
+- `open()` - Open the widget
+- `close()` - Close the widget
+- `toggle()` - Toggle open/closed
+- `navigate(options)` - Navigate to a page
+- `goBack()` - Go back
+- `openConversation(id)` - Open specific conversation
+- `startConversation(message?)` - Start new conversation
+- `goHome()` - Navigate to home page
+
+## Conversation Hooks
+
+### useConversations
+
+List and fetch conversations for the current visitor.
+
+```tsx
+import { useConversations } from "@cossistant/react";
+
+function ConversationList() {
+  const {
+    conversations,
+    pagination,
+    isLoading,
+    error,
+    refetch,
+  } = useConversations({
+    limit: 20,
+    status: "open",
+  });
+
+  if (isLoading) return <div>Loading...</div>;
+
+  return (
+    <div>
+      {conversations.map(conv => (
+        <div key={conv.id}>{conv.title}</div>
+      ))}
+    </div>
+  );
+}
+```
+
+**Options:**
+
+- `limit` - Number of conversations per page
+- `page` - Page number
+- `status` - Filter by status ("open" | "resolved")
+- `order` - Sort order ("asc" | "desc")
+- `orderBy` - Sort field
+- `enabled` - Enable/disable query
+- `refetchInterval` - Auto-refetch interval
+- `refetchOnWindowFocus` - Refetch on window focus
+
+**Returns:**
+
+- `conversations` - Array of conversation objects
+- `pagination` - Pagination metadata
+- `isLoading` - Loading state
+- `error` - Error object
+- `refetch()` - Manual refetch function
+
+### useConversation
+
+Load a single conversation by ID.
+
+```tsx
+import { useConversation } from "@cossistant/react";
+
+function ConversationView({ id }: { id: string }) {
+  const { conversation, isLoading, error, refetch } = useConversation(id);
+
+  if (isLoading) return <div>Loading...</div>;
+  if (!conversation) return <div>Not found</div>;
+
+  return <div>{conversation.title}</div>;
+}
+```
+
+**Returns:**
+
+- `conversation` - Conversation object
+- `isLoading` - Loading state
+- `error` - Error object
+- `refetch()` - Manual refetch
+
+### useCreateConversation
+
+Create new conversations programmatically.
+
+```tsx
+import { useCreateConversation } from "@cossistant/react";
+
+function NewConversationButton() {
+  const { mutate, mutateAsync, isPending } = useCreateConversation({
+    onSuccess: (data) => {
+      console.log("Created:", data.conversation.id);
+    },
+  });
+
+  return (
+    <button
+      onClick={() => mutate({ title: "New Support Request" })}
+      disabled={isPending}
+    >
+      {isPending ? "Creating..." : "New Conversation"}
+    </button>
+  );
+}
+```
+
+**Options:**
+
+- `onSuccess(data)` - Success callback
+- `onError(error)` - Error callback
+- `client` - Override client instance
+
+**Returns:**
+
+- `mutate(variables)` - Fire and forget mutation
+- `mutateAsync(variables)` - Async mutation
+- `isPending` - Mutation in progress
+- `error` - Error object
+- `reset()` - Reset state
+
+**Variables:**
+
+- `conversationId` - Optional custom ID
+- `defaultTimelineItems` - Initial messages
+- `visitorId` - Visitor ID
+- `status` - Initial status
+- `title` - Conversation title
+
+## Message Hooks
+
+### useSendMessage
+
+Send messages with file attachments.
+
+```tsx
+import { useSendMessage } from "@cossistant/react";
+
+function MessageForm({ conversationId }: { conversationId: string }) {
+  const [message, setMessage] = useState("");
+  const { mutateAsync, isPending, isUploading, error } = useSendMessage();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await mutateAsync({
+      conversationId,
+      message,
+      onSuccess: () => setMessage(""),
+    });
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+        disabled={isPending || isUploading}
+      />
+      <button type="submit" disabled={!message || isPending}>
+        {isPending ? "Sending..." : "Send"}
+      </button>
+    </form>
+  );
+}
+```
+
+**Returns:**
+
+- `mutate(options)` - Fire and forget send
+- `mutateAsync(options)` - Async send
+- `isPending` - Message sending in progress
+- `isUploading` - File upload in progress
+- `error` - Error object
+- `reset()` - Reset state
+
+**Options:**
+
+- `conversationId` - Target conversation (creates new if omitted)
+- `message` - Message text
+- `files` - Array of File objects
+- `defaultTimelineItems` - Initial messages for new conversation
+- `messageId` - Custom message ID
+- `onSuccess(conversationId, messageId)` - Success callback
+- `onError(error)` - Error callback
+- `onConversationInitiated(id)` - Called when new conversation starts
+
+### useMessageComposer
+
+Manage message composition with file attachments.
+
+```tsx
+import { useMessageComposer } from "@cossistant/react";
+
+function MessageInput({ conversationId }: { conversationId: string }) {
+  const composer = useMessageComposer({
+    conversationId,
+    onMessageSent: () => console.log("Sent!"),
+  });
+
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); composer.submit(); }}>
+      <input
+        value={composer.message}
+        onChange={(e) => composer.setMessage(e.target.value)}
+      />
+      <input
+        type="file"
+        multiple
+        onChange={(e) => {
+          if (e.target.files) {
+            composer.addFiles(Array.from(e.target.files));
+          }
+        }}
+      />
+      {composer.attachments.map((file) => (
+        <div key={file.name}>
+          {file.name}
+          <button onClick={() => composer.removeFile(file.name)}>×</button>
+        </div>
+      ))}
+      <button type="submit" disabled={!composer.canSubmit || composer.isSubmitting}>
+        {composer.isSubmitting ? "Sending..." : "Send"}
+      </button>
+    </form>
+  );
+}
+```
+
+**Returns:**
+
+- `message` - Current message text
+- `setMessage(text)` - Update message
+- `attachments` - Attached files
+- `addFiles(files)` - Add file attachments
+- `removeFile(fileName)` - Remove attachment
+- `clearFiles()` - Remove all attachments
+- `submit()` - Submit message
+- `canSubmit` - Whether message can be sent
+- `isSubmitting` - Submission in progress
+- `error` - Submission error
+
+## Page Hooks
+
+### useHomePage
+
+Logic hook for building custom home pages.
+
+```tsx
+import { useHomePage } from "@cossistant/react";
+
+function CustomHomePage() {
+  const home = useHomePage({
+    onStartConversation: () => console.log("Started"),
+    onOpenConversation: (id) => console.log("Opened:", id),
+  });
+
+  return (
+    <div>
+      <h1>Welcome</h1>
+      
+      {home.lastOpenConversation && (
+        <button onClick={() => home.openConversation(home.lastOpenConversation.id)}>
+          Continue conversation
+        </button>
+      )}
+
+      <button onClick={() => home.startConversation()}>
+        New conversation
+      </button>
+
+      {home.availableConversationsCount > 0 && (
+        <button onClick={home.openConversationHistory}>
+          View {home.availableConversationsCount} conversations
+        </button>
+      )}
+    </div>
+  );
+}
+```
+
+**Returns:**
+
+- `conversations` - List of conversations
+- `lastOpenConversation` - Most recent open conversation
+- `availableConversationsCount` - Total count
+- `isLoading` - Loading state
+- `startConversation()` - Start new conversation
+- `openConversation(id)` - Open existing conversation
+- `openConversationHistory()` - Navigate to history page
+
+### useConversationPage
+
+Logic hook for building custom conversation pages.
+
+```tsx
+import { useConversationPage } from "@cossistant/react";
+
+function CustomConversationPage({ conversationId }: { conversationId: string }) {
+  const conversation = useConversationPage({
+    conversationId,
+    onConversationCreated: (id) => console.log("Created:", id),
+  });
+
+  return (
+    <div>
+      <div>
+        {conversation.items.map((item) => (
+          <div key={item.id}>{item.text}</div>
+        ))}
+      </div>
+
+      {conversation.isConversationOpen && (
+        <form onSubmit={(e) => { 
+          e.preventDefault(); 
+          conversation.composer.submit(); 
+        }}>
+          <input
+            value={conversation.composer.message}
+            onChange={(e) => conversation.composer.setMessage(e.target.value)}
+          />
+          <button type="submit" disabled={!conversation.composer.canSubmit}>
+            Send
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}
+```
+
+**Returns:**
+
+- `conversationId` - Current conversation ID
+- `conversation` - Conversation object
+- `items` - Timeline items (messages, events)
+- `isConversationOpen` - Whether conversation is open
+- `isLoading` - Loading state
+- `error` - Error object
+- `shouldShowIdentificationTool` - Whether to prompt for identification
+- `composer` - Message composer state
+
+## Utility Hooks
+
+### useConversationTimeline
+
+Produces grouped timeline items, seen data, and typing state.
+
+```tsx
+import { useConversationTimeline } from "@cossistant/react";
+
+function Timeline({ conversationId, items, visitorId }) {
+  const {
+    groupedMessages,
+    seenData,
+    processing,
+    typingParticipants,
+  } = useConversationTimeline({
+    conversationId,
+    items,
+    currentVisitorId: visitorId,
+  });
+
+  return (
+    <div>
+      {groupedMessages.map((group) => (
+        <div key={group.id}>
+          {/* Render message group */}
+        </div>
+      ))}
+      {typingParticipants.length > 0 && (
+        <div>Someone is typing...</div>
+      )}
+    </div>
+  );
+}
+```
+
+### useConversationSeen
+
+Track and report seen status for messages.
+
+```tsx
+import { useConversationSeen } from "@cossistant/react";
+
+function ConversationView({ conversationId }) {
+  const seenData = useConversationSeen(conversationId);
+  
+  // seenData contains seen timestamps for all participants
+}
+```
+
+### useConversationTyping
+
+Monitor typing indicators in a conversation.
+
+```tsx
+import { useConversationTyping } from "@cossistant/react";
+
+function TypingIndicator({ conversationId, currentVisitorId }) {
+  const typingEntries = useConversationTyping(conversationId, {
+    excludeVisitorId: currentVisitorId,
+  });
+
+  if (typingEntries.length === 0) return null;
+
+  return <div>{typingEntries.length} people typing...</div>;
+}
+```
+
+### useFileUpload
+
+Handle file uploads with progress tracking.
+
+```tsx
+import { useFileUpload } from "@cossistant/react";
+
+function FileUploader() {
+  const upload = useFileUpload({
+    onUploadComplete: (result) => console.log("Uploaded:", result),
+    onError: (error) => console.error("Failed:", error),
+  });
+
+  return (
+    <div>
+      <input
+        type="file"
+        onChange={(e) => {
+          if (e.target.files?.[0]) {
+            upload.uploadFile(e.target.files[0]);
+          }
+        }}
+      />
+      {upload.isUploading && (
+        <div>
+          <progress value={upload.progress} max={100} />
+          {upload.progress}%
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+## Real-time Hooks
+
+### useSupportEvents
+
+Subscribe to widget lifecycle events.
+
+```tsx
+import { useSupportEvents } from "@cossistant/react/support";
+import { useEffect } from "react";
+
+function AnalyticsTracker() {
+  const events = useSupportEvents();
+
+  useEffect(() => {
+    if (!events) return;
+
+    const unsubscribe = events.subscribe("messageSent", (event) => {
+      analytics.track("support_message_sent", {
+        conversationId: event.conversationId,
+      });
+    });
+
+    return unsubscribe;
+  }, [events]);
+
+  return null;
+}
+```
+
+### useSupportText
+
+Access localization system for the widget.
+
+```tsx
+import { useSupportText } from "@cossistant/react/support";
+
+function LocalizedButton() {
+  const text = useSupportText();
+
+  return (
+    <button>
+      {text.get("common.actions.askQuestion")}
+    </button>
+  );
+}
+```
+
+## Type Definitions
+
+### Common Types
+
+```tsx
+// Visitor metadata
+type VisitorMetadata = Record<string, string | number | boolean | null>;
+
+// Default message
+type DefaultMessage = {
+  content: string;
+  senderType: "visitor" | "team_member" | "ai";
+  senderId?: string;
+};
+
+// Support handle
+type SupportHandle = {
+  open: () => void;
+  close: () => void;
+  toggle: () => void;
+  navigate: (options: { page: string; params?: RouteParams }) => void;
+  goBack: () => void;
+  openConversation: (conversationId: string) => void;
+  startConversation: (initialMessage?: string) => void;
+  goHome: () => void;
+};
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Primitives" icon="cube" href="/sdk/primitives">
+    Build custom UIs with headless components
+  </Card>
+  <Card title="Support Component" icon="message" href="/sdk/support-component">
+    Learn about the Support component
+  </Card>
+  <Card title="React SDK" icon="react" href="/sdk/react-sdk">
+    View the React SDK overview
+  </Card>
+  <Card title="Next.js SDK" icon="triangle" href="/sdk/nextjs-sdk">
+    Use with Next.js
+  </Card>
+</CardGroup>

@@ -1,0 +1,507 @@
+---
+title: Contacts
+description: Identified visitors with rich metadata, cross-device history, and persistent identity.
+---
+
+## What are Contacts?
+
+**Contacts** are identified [visitors](/concepts/contacts) in Cossistant. When you identify an anonymous visitor with an `externalId` (your internal user ID) or `email`, they become a contact.
+
+Contacts unlock powerful support capabilities:
+
+- **Cross-device continuity**: Same user on desktop and mobile shares conversation history
+- **Rich metadata**: Attach context like subscription plan, MRR, company, or lifecycle stage
+- **Dashboard visibility**: Support agents see user details alongside chat threads
+- **Persistent identity**: Conversations follow the user, not the device
+- **Better AI responses**: AI agents can personalize based on user context
+
+## Why Contacts Matter
+
+Identifying visitors as contacts transforms support from anonymous to personalized:
+
+**Without Contacts (Anonymous Visitors):**
+- "I'm having trouble with my order"
+- Agent has no context about order history, account type, or previous issues
+- User must re-authenticate and explain their situation
+
+**With Contacts:**
+- "I'm having trouble with my order"
+- Agent immediately sees: Pro plan customer, 3 previous conversations, MRR $299, last order #12345
+- AI agent can reference order history and provide personalized assistance
+
+## Data Model
+
+Contacts don't have a separate table—they're visitors with additional identifying fields populated:
+
+```typescript title="Database Schema (Visitor with Contact Fields)"
+// From visitor table with contact fields
+const visitor = {
+  id: "vis_01JGABC123",
+  organizationId: "org_xyz",
+  websiteId: "web_abc",
+  
+  // Contact identification fields
+  contactId: "contact_01JGDEF456", // Links to contact table
+  externalId: "user_12345", // Your internal user ID
+  email: "john@example.com",
+  name: "John Doe",
+  image: "https://example.com/avatar.jpg",
+  
+  // Custom metadata
+  metadata: {
+    plan: "pro",
+    mrr: 299,
+    company: "Acme Corp",
+    signupDate: "2024-01-15T00:00:00Z",
+    lifecycleStage: "customer",
+  },
+  
+  // Tracking fields
+  lastSeenAt: "2024-03-13T10:30:00Z",
+  createdAt: "2024-01-15T08:00:00Z",
+  updatedAt: "2024-03-13T10:30:00Z",
+};
+```
+
+### Contact API Schema
+
+```typescript title="packages/types/src/api/contact.ts"
+export const contactResponseSchema = z.object({
+  id: z.ulid().openapi({
+    description: "The contact's unique identifier (ULID).",
+    example: "01JG000000000000000000000",
+  }),
+  externalId: z.string().nullable().openapi({
+    description: "External identifier for the contact (your user ID).",
+    example: "user_12345",
+  }),
+  name: z.string().nullable().openapi({
+    description: "The contact's name.",
+    example: "John Doe",
+  }),
+  email: z.email().nullable().openapi({
+    description: "The contact's email address.",
+    example: "john.doe@example.com",
+  }),
+  image: z.url().nullable().openapi({
+    description: "The contact's avatar/image URL.",
+    example: "https://example.com/avatar.png",
+  }),
+  metadata: contactMetadataSchema.nullable().openapi({
+    description: "Additional custom metadata for the contact.",
+    example: { plan: "premium", role: "admin" },
+  }),
+  contactOrganizationId: z.ulid().nullable().openapi({
+    description: "The contact organization ID this contact belongs to.",
+    example: "01JG000000000000000000000",
+  }),
+  websiteId: z.ulid(),
+  organizationId: z.ulid(),
+  userId: z.ulid().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type Contact = z.infer<typeof contactResponseSchema>;
+```
+
+### Metadata Schema
+
+```typescript title="packages/types/src/api/contact.ts"
+export const contactMetadataSchema = z.record(
+  z.string(),
+  z.string().or(z.number()).or(z.boolean()).or(z.null())
+);
+
+export type ContactMetadata = z.infer<typeof contactMetadataSchema>;
+```
+
+<Note>
+Metadata only supports primitive values (string, number, boolean, null). Nested objects and arrays are not supported.
+</Note>
+
+## Creating Contacts
+
+### Identification Requirements
+
+A contact requires **at least one** identifier:
+
+- `externalId`: Your internal user ID (recommended)
+- `email`: User's email address
+
+Both can be provided, but `externalId` is preferred for robust cross-system tracking.
+
+### Using the React Component
+
+```tsx title="app/dashboard/layout.tsx"
+import { IdentifySupportVisitor } from "@cossistant/next";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
+
+export default async function DashboardLayout({ children }) {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  return (
+    <div>
+      {session?.user && (
+        <IdentifySupportVisitor
+          externalId={session.user.id}
+          email={session.user.email}
+          name={session.user.name}
+          image={session.user.image}
+          metadata={{
+            plan: session.user.plan,
+            signupDate: session.user.createdAt,
+            company: session.user.company,
+            mrr: session.user.mrr,
+            isAdmin: session.user.role === "admin",
+          }}
+        />
+      )}
+      {children}
+    </div>
+  );
+}
+```
+
+### Using the React Hook
+
+```tsx title="components/auth-handler.tsx"
+"use client";
+
+import { useVisitor } from "@cossistant/next";
+import { useEffect } from "react";
+
+export function AuthHandler({ user }) {
+  const { visitor, identify } = useVisitor();
+
+  useEffect(() => {
+    if (user && !visitor?.contact) {
+      identify({
+        externalId: user.id,
+        email: user.email,
+        name: user.name,
+        image: user.avatar,
+        metadata: {
+          plan: user.plan,
+          signupDate: user.createdAt,
+          lastActive: new Date().toISOString(),
+        },
+      });
+    }
+  }, [user, visitor?.contact, identify]);
+
+  return null;
+}
+```
+
+### Using the REST API
+
+```typescript
+// Identify a visitor as a contact
+const response = await fetch('/api/contacts/identify', {
+  method: 'POST',
+  headers: {
+    'X-Website-Id': websiteId,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    visitorId: 'vis_abc123',
+    externalId: 'user_12345',
+    email: 'john@example.com',
+    name: 'John Doe',
+    image: 'https://example.com/avatar.jpg',
+    metadata: {
+      plan: 'pro',
+      mrr: 299,
+      company: 'Acme Corp',
+    },
+  }),
+});
+
+const { contact, visitorId } = await response.json();
+```
+
+## Contact Metadata
+
+Metadata provides contextual information to support agents and AI during conversations.
+
+### What to Include
+
+Common metadata fields that enhance support:
+
+**Account Information:**
+- `plan`: Subscription tier (free, pro, enterprise)
+- `mrr`: Monthly recurring revenue
+- `ltv`: Lifetime value
+- `trialEndsAt`: Trial expiration date
+
+**User Context:**
+- `signupDate`: When the user joined
+- `lastActive`: Last activity timestamp
+- `lifecycleStage`: lead, trial, customer, churned
+- `onboardingCompleted`: Whether setup is complete
+
+**Organization Data:**
+- `company`: Organization name
+- `companySize`: Number of employees
+- `industry`: Business sector
+- `accountOwner`: Account manager name
+
+**Feature Usage:**
+- `activeUsers`: Team members using the product
+- `apiCallsThisMonth`: Usage metrics
+- `lastFeatureUsed`: Most recent feature interaction
+
+### Metadata Best Practices
+
+<Tip>
+**Include data that helps agents make decisions:**
+- Is this a high-value customer? (mrr, ltv)
+- Are they at risk? (lastActive, trialEndsAt)
+- What's their experience level? (signupDate, onboardingCompleted)
+- What features do they use? (lastFeatureUsed, apiCallsThisMonth)
+</Tip>
+
+```typescript
+// Good metadata example
+metadata: {
+  // Account tier - helps prioritize support
+  plan: "enterprise",
+  mrr: 2999,
+  
+  // Usage context - shows engagement
+  lastActive: "2024-03-13T09:00:00Z",
+  activeUsers: 47,
+  
+  // Business context - personalizes support
+  company: "Acme Corp",
+  industry: "fintech",
+  
+  // Account health - identifies at-risk customers
+  healthScore: 85,
+  npsScore: 9,
+}
+```
+
+### Updating Metadata
+
+Metadata can be updated anytime to reflect changes:
+
+```tsx title="components/upgrade-button.tsx"
+"use client";
+
+import { useVisitor } from "@cossistant/next";
+
+export function UpgradeButton() {
+  const { setVisitorMetadata } = useVisitor();
+
+  const handleUpgrade = async () => {
+    await upgradeToPro();
+
+    // Update metadata so agents see the new plan immediately
+    await setVisitorMetadata({
+      plan: "pro",
+      upgradedAt: new Date().toISOString(),
+      mrr: 99,
+    });
+  };
+
+  return <button onClick={handleUpgrade}>Upgrade to Pro</button>;
+}
+```
+
+### Efficient Metadata Updates
+
+Cossistant **hashes metadata** before sending updates. If metadata hasn't changed, no API call is made.
+
+This means you can safely:
+- Call `setVisitorMetadata()` on every render
+- Re-render `<IdentifySupportVisitor />` components
+- Update metadata optimistically without performance concerns
+
+```typescript
+// This is fine - no network request if metadata unchanged
+useEffect(() => {
+  setVisitorMetadata({
+    lastActive: new Date().toISOString(),
+  });
+}, []); // Runs every render, but only sends if changed
+```
+
+## One Contact, Multiple Visitors
+
+A single contact can have multiple [visitors](/concepts/contacts) associated with it:
+
+```typescript
+// Contact: john@example.com (externalId: user_12345)
+const contact = {
+  id: "contact_abc",
+  externalId: "user_12345",
+  email: "john@example.com",
+};
+
+// Multiple visitors for this contact
+const visitors = [
+  { id: "vis_desktop", device: "MacBook Pro", browser: "Chrome" },
+  { id: "vis_mobile", device: "iPhone", browser: "Safari" },
+  { id: "vis_tablet", device: "iPad", browser: "Safari" },
+];
+
+// All visitors share:
+// - Conversation history
+// - Contact metadata
+// - Support context
+```
+
+This provides seamless support across devices:
+- User starts conversation on desktop
+- Continues on mobile during commute
+- Agent sees complete history regardless of device
+
+## Contact Organizations
+
+Group contacts into organizations for B2B scenarios:
+
+```typescript title="packages/types/src/api/contact.ts"
+export const contactOrganizationResponseSchema = z.object({
+  id: z.ulid(),
+  name: z.string().openapi({
+    description: "The organization name.",
+    example: "Acme Corporation",
+  }),
+  externalId: z.string().nullable().openapi({
+    description: "External identifier for the organization.",
+    example: "org_12345",
+  }),
+  domain: z.string().nullable().openapi({
+    description: "The organization's domain.",
+    example: "acme.com",
+  }),
+  description: z.string().nullable(),
+  metadata: contactMetadataSchema.nullable().openapi({
+    description: "Additional custom metadata for the organization.",
+    example: { industry: "technology", employees: 500 },
+  }),
+  websiteId: z.ulid(),
+  organizationId: z.ulid(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+```
+
+### Creating Contact Organizations
+
+```typescript
+// Create a contact organization
+const response = await fetch('/api/contact-organizations', {
+  method: 'POST',
+  headers: {
+    'X-Website-Id': websiteId,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    name: 'Acme Corporation',
+    externalId: 'org_12345',
+    domain: 'acme.com',
+    description: 'Enterprise customer since 2023',
+    metadata: {
+      industry: 'fintech',
+      employees: 500,
+      contractValue: 50000,
+      renewalDate: '2025-01-15',
+    },
+  }),
+});
+```
+
+### Associating Contacts with Organizations
+
+```typescript
+// Link a contact to an organization
+await fetch(`/api/contacts/${contactId}`, {
+  method: 'PATCH',
+  body: JSON.stringify({
+    contactOrganizationId: 'org_abc123',
+  }),
+});
+```
+
+## Real-World Example
+
+Here's how contacts enhance a support interaction:
+
+```typescript
+// 1. User visits your app (anonymous visitor)
+const visitor = {
+  id: "vis_anonymous123",
+  // No contact info yet
+};
+
+// 2. User logs in - identify as contact
+await identify({
+  externalId: user.id,
+  email: user.email,
+  name: user.name,
+  metadata: {
+    plan: "pro",
+    mrr: 299,
+    signupDate: "2024-01-15T00:00:00Z",
+    lastActive: new Date().toISOString(),
+    trialEndsAt: null, // Already converted
+    onboardingCompleted: true,
+  },
+});
+
+// 3. User starts a conversation
+const conversation = await createConversation({
+  visitorId: visitor.id,
+  message: "How do I export my data?",
+});
+
+// 4. AI agent sees contact metadata and personalizes response
+const aiResponse = `Hi ${user.name}! As a Pro customer, you have 
+access to our advanced export features. Let me show you how...`;
+
+// 5. User upgrades to Enterprise mid-conversation
+await setVisitorMetadata({
+  plan: "enterprise",
+  mrr: 999,
+  upgradedAt: new Date().toISOString(),
+});
+
+// 6. AI agent adjusts response based on new plan
+const updatedResponse = `Great news on your upgrade to Enterprise! 
+You now have access to scheduled exports and API access. Let me 
+walk you through the enhanced export options...`;
+```
+
+## Privacy & Security
+
+### Data Handling
+
+- Contact data is scoped to your organization
+- Metadata is stored securely and never shared across organizations
+- Email addresses are hashed for duplicate detection
+- GDPR-compliant data deletion available via API
+
+### Best Practices
+
+<Note>
+**Never include sensitive data in metadata:**
+- ❌ Passwords or API keys
+- ❌ Credit card numbers
+- ❌ Social security numbers
+- ✅ Plan type, MRR, company name
+- ✅ Feature usage, account status
+</Note>
+
+## Learn More
+
+- [Visitors](/concepts/contacts): Anonymous users before identification
+- [Conversations](/concepts/conversations): Chat threads associated with contacts
+- [IdentifySupportVisitor](/sdk/react-sdk#identifysupportvisitor): Component for creating contacts
+- [useVisitor](/sdk/hooks#usevisitor): Hook for contact management
+- [Contacts API](/api/contacts): REST API for contact management

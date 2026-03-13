@@ -1,0 +1,1059 @@
+---
+title: "React API Reference"
+description: "Complete API reference for the @cossistant/react SDK"
+---
+
+# React SDK API Reference
+
+Complete reference for all exports from `@cossistant/react`.
+
+## Provider
+
+### SupportProvider
+
+Root provider component that initializes the Cossistant SDK and manages global state.
+
+```tsx
+import { SupportProvider } from "@cossistant/react";
+
+function App() {
+  return (
+    <SupportProvider publicKey="pk_...">
+      {/* Your app */}
+    </SupportProvider>
+  );
+}
+```
+
+<ParamField path="publicKey" type="string" required>
+  Your Cossistant public API key
+</ParamField>
+
+<ParamField path="apiUrl" type="string" default="https://api.cossistant.com/v1">
+  Override the API URL (useful for self-hosted instances)
+</ParamField>
+
+<ParamField path="wsUrl" type="string" default="wss://api.cossistant.com/ws">
+  Override the WebSocket URL for realtime features
+</ParamField>
+
+<ParamField path="defaultMessages" type="DefaultMessage[]">
+  Pre-fill the conversation with welcome messages before visitor interaction
+</ParamField>
+
+<ParamField path="quickOptions" type="string[]">
+  Quick reply buttons displayed to visitors
+</ParamField>
+
+<ParamField path="autoConnect" type="boolean" default={true}>
+  Whether to automatically establish WebSocket connection
+</ParamField>
+
+<ParamField path="size" type="'normal' | 'larger'" default="normal">
+  Widget display size
+</ParamField>
+
+<ParamField path="defaultOpen" type="boolean" default={false}>
+  Whether the widget should open automatically on mount
+</ParamField>
+
+<ParamField path="onWsConnect" type="() => void">
+  Callback fired when WebSocket connection is established
+</ParamField>
+
+<ParamField path="onWsDisconnect" type="() => void">
+  Callback fired when WebSocket connection is lost
+</ParamField>
+
+<ParamField path="onWsError" type="(error: Error) => void">
+  Callback fired when WebSocket errors occur
+</ParamField>
+
+---
+
+## Components
+
+### Support
+
+Complete support widget with chat, routing, and real-time features.
+
+```tsx
+import { Support } from "@cossistant/react";
+
+<Support />
+```
+
+#### Props
+
+<ParamField path="side" type="'top' | 'bottom' | 'left' | 'right'" default="top">
+  Position of the widget relative to the trigger
+</ParamField>
+
+<ParamField path="align" type="'start' | 'center' | 'end'" default="end">
+  Alignment along the side axis
+</ParamField>
+
+<ParamField path="sideOffset" type="number" default={16}>
+  Distance in pixels between trigger and content
+</ParamField>
+
+<ParamField path="avoidCollisions" type="boolean" default={true}>
+  Enable automatic repositioning to stay within viewport
+</ParamField>
+
+<ParamField path="collisionPadding" type="number | { top?: number; right?: number; bottom?: number; left?: number }" default={8}>
+  Padding from viewport edges when avoiding collisions
+</ParamField>
+
+<ParamField path="theme" type="'light' | 'dark'">
+  Force a specific theme (omit for automatic detection)
+</ParamField>
+
+<ParamField path="open" type="boolean">
+  Controlled open state - use with `onOpenChange` for external state management
+</ParamField>
+
+<ParamField path="onOpenChange" type="(open: boolean) => void">
+  Callback fired when open state should change (for controlled mode)
+</ParamField>
+
+<ParamField path="defaultOpen" type="boolean" default={false}>
+  Whether widget opens automatically in uncontrolled mode
+</ParamField>
+
+<ParamField path="quickOptions" type="string[]">
+  Quick reply buttons displayed to users
+</ParamField>
+
+<ParamField path="defaultMessages" type="DefaultMessage[]">
+  Welcome messages shown before conversation starts
+</ParamField>
+
+<ParamField path="locale" type="string">
+  Locale string for widget translations (e.g., 'en', 'fr', 'es')
+</ParamField>
+
+<ParamField path="content" type="SupportTextContentOverrides">
+  Custom text content overrides for internationalization
+</ParamField>
+
+<ParamField path="customPages" type="CustomPage[]">
+  Custom pages to add to the router
+</ParamField>
+
+<ParamField path="className" type="string">
+  Additional CSS classes for root wrapper
+</ParamField>
+
+<ParamField path="classNames" type="{ trigger?: string; content?: string }">
+  CSS class overrides for specific parts
+</ParamField>
+
+#### Event Callbacks
+
+<ParamField path="onConversationStart" type="(event: ConversationStartEvent) => void">
+  Called when a new conversation is started
+</ParamField>
+
+<ParamField path="onConversationEnd" type="(event: ConversationEndEvent) => void">
+  Called when a conversation ends (resolved, closed, etc.)
+</ParamField>
+
+<ParamField path="onMessageSent" type="(event: MessageSentEvent) => void">
+  Called when the visitor sends a message
+</ParamField>
+
+<ParamField path="onMessageReceived" type="(event: MessageReceivedEvent) => void">
+  Called when a message is received from an agent
+</ParamField>
+
+<ParamField path="onError" type="(event: ErrorEvent) => void">
+  Called when an error occurs within the widget
+</ParamField>
+
+#### Compound Components
+
+<CodeGroup>
+```tsx Support.Root
+<Support.Root open={isOpen} onOpenChange={setIsOpen}>
+  <Support.Trigger>Help</Support.Trigger>
+  <Support.Content>
+    <Support.Router />
+  </Support.Content>
+</Support.Root>
+```
+
+```tsx Support.Trigger
+<Support.Trigger className="custom-button">
+  {({ isOpen, unreadCount }) => (
+    <span>{isOpen ? 'Close' : `Help (${unreadCount})`}</span>
+  )}
+</Support.Trigger>
+```
+
+```tsx Support.Content
+<Support.Content side="bottom" align="end">
+  <Support.Router />
+</Support.Content>
+```
+
+```tsx Support.Page
+<Support>
+  <Support.Page name="FAQ" component={FAQPage} />
+</Support>
+```
+
+```tsx Support.Router
+<Support.Router>
+  <Support.Page name="custom" component={CustomPage} />
+</Support.Router>
+```
+</CodeGroup>
+
+---
+
+### Feedback
+
+Standalone feedback widget for collecting visitor ratings and comments.
+
+```tsx
+import { Feedback } from "@cossistant/react";
+
+<Feedback />
+```
+
+#### Props
+
+<ParamField path="conversationId" type="string">
+  Associate feedback with a specific conversation
+</ParamField>
+
+<ParamField path="trigger" type="string">
+  Custom trigger identifier for analytics
+</ParamField>
+
+<ParamField path="topics" type="string[]">
+  Predefined feedback topics for categorization
+</ParamField>
+
+<ParamField path="defaultTopic" type="string">
+  Pre-selected topic
+</ParamField>
+
+<ParamField path="topicPlaceholder" type="string">
+  Placeholder for topic selector
+</ParamField>
+
+<ParamField path="commentPlaceholder" type="string">
+  Placeholder for comment input
+</ParamField>
+
+<ParamField path="commentRequired" type="boolean" default={false}>
+  Whether comment is required for submission
+</ParamField>
+
+<ParamField path="side" type="'top' | 'bottom' | 'left' | 'right'" default="top">
+  Position of the widget relative to trigger
+</ParamField>
+
+<ParamField path="align" type="'start' | 'center' | 'end'" default="end">
+  Alignment along the side axis
+</ParamField>
+
+<ParamField path="theme" type="'light' | 'dark'">
+  Force a specific theme
+</ParamField>
+
+<ParamField path="open" type="boolean">
+  Controlled open state
+</ParamField>
+
+<ParamField path="onOpenChange" type="(open: boolean) => void">
+  Callback for open state changes
+</ParamField>
+
+#### Compound Components
+
+```tsx
+<Feedback.Root>
+  <Feedback.Trigger>Give Feedback</Feedback.Trigger>
+  <Feedback.Content topics={['bug', 'feature', 'other']} />
+</Feedback.Root>
+```
+
+---
+
+### IdentifySupportVisitor
+
+Component for identifying visitors and associating them with contacts.
+
+```tsx
+import { IdentifySupportVisitor } from "@cossistant/react";
+
+<IdentifySupportVisitor
+  externalId="user_123"
+  email="user@example.com"
+  name="John Doe"
+  image="https://example.com/avatar.jpg"
+  metadata={{
+    plan: "premium",
+    role: "admin"
+  }}
+/>
+```
+
+<ParamField path="externalId" type="string">
+  External identifier from your system (required if email not provided)
+</ParamField>
+
+<ParamField path="email" type="string">
+  Email address (required if externalId not provided)
+</ParamField>
+
+<ParamField path="name" type="string">
+  Display name
+</ParamField>
+
+<ParamField path="image" type="string">
+  Avatar image URL
+</ParamField>
+
+<ParamField path="metadata" type="VisitorMetadata">
+  Custom metadata (key-value pairs of strings, numbers, booleans, or null)
+</ParamField>
+
+---
+
+### SupportConfig
+
+Dynamic configuration component for updating widget settings at runtime.
+
+```tsx
+import { SupportConfig } from "@cossistant/react";
+
+<SupportConfig
+  defaultMessages={[
+    { content: "Welcome!", senderType: "ai" }
+  ]}
+  quickOptions={["Pricing", "Demo", "Support"]}
+/>
+```
+
+<ParamField path="defaultMessages" type="DefaultMessage[]">
+  Update welcome messages dynamically
+</ParamField>
+
+<ParamField path="quickOptions" type="string[]">
+  Update quick reply options dynamically
+</ParamField>
+
+---
+
+## Hooks
+
+### useSupport
+
+Access the global support context and website data.
+
+```tsx
+import { useSupport } from "@cossistant/react";
+
+function MyComponent() {
+  const {
+    website,
+    visitor,
+    client,
+    unreadCount,
+    isOpen,
+    open,
+    close,
+    toggle,
+    availableHumanAgents,
+    availableAIAgents
+  } = useSupport();
+}
+```
+
+#### Returns
+
+<ResponseField name="website" type="PublicWebsiteResponse | null">
+  Current website configuration and settings
+</ResponseField>
+
+<ResponseField name="visitor" type="PublicVisitor | undefined">
+  Current visitor information with locale
+</ResponseField>
+
+<ResponseField name="client" type="CossistantClient | null">
+  SDK client instance for direct API calls
+</ResponseField>
+
+<ResponseField name="unreadCount" type="number">
+  Number of unread messages across all conversations
+</ResponseField>
+
+<ResponseField name="isOpen" type="boolean">
+  Current open state of the support widget
+</ResponseField>
+
+<ResponseField name="open" type="() => void">
+  Function to open the support widget
+</ResponseField>
+
+<ResponseField name="close" type="() => void">
+  Function to close the support widget
+</ResponseField>
+
+<ResponseField name="toggle" type="() => void">
+  Function to toggle the support widget open/closed
+</ResponseField>
+
+<ResponseField name="availableHumanAgents" type="Agent[]">
+  List of available human agents
+</ResponseField>
+
+<ResponseField name="availableAIAgents" type="AIAgent[]">
+  List of available AI agents
+</ResponseField>
+
+<ResponseField name="isLoading" type="boolean">
+  Whether initial data is loading
+</ResponseField>
+
+<ResponseField name="error" type="Error | null">
+  Any error that occurred during initialization
+</ResponseField>
+
+<ResponseField name="configurationError" type="ConfigurationError | null">
+  Configuration-specific errors (e.g., missing API key)
+</ResponseField>
+
+---
+
+### useConversation
+
+Load and subscribe to a single conversation.
+
+```tsx
+import { useConversation } from "@cossistant/react";
+
+const { conversation, isLoading, error, refetch } = useConversation(conversationId);
+```
+
+#### Parameters
+
+<ParamField path="conversationId" type="string | null" required>
+  ID of the conversation to load (null to skip loading)
+</ParamField>
+
+<ParamField path="options" type="UseConversationOptions">
+  <Expandable title="options properties">
+    <ParamField path="enabled" type="boolean" default={true}>
+      Whether to automatically fetch the conversation
+    </ParamField>
+    <ParamField path="refetchInterval" type="number | false" default={false}>
+      Auto-refetch interval in milliseconds
+    </ParamField>
+    <ParamField path="refetchOnWindowFocus" type="boolean" default={false}>
+      Whether to refetch when window regains focus
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+#### Returns
+
+<ResponseField name="conversation" type="Conversation | null">
+  The conversation data
+</ResponseField>
+
+<ResponseField name="isLoading" type="boolean">
+  Loading state (false if conversation is cached)
+</ResponseField>
+
+<ResponseField name="error" type="Error | null">
+  Any error that occurred
+</ResponseField>
+
+<ResponseField name="refetch" type="(args?) => Promise<GetConversationResponse>">
+  Function to manually refetch the conversation
+</ResponseField>
+
+---
+
+### useConversations
+
+Fetch and subscribe to the visitor's conversation list.
+
+```tsx
+import { useConversations } from "@cossistant/react";
+
+const { conversations, pagination, isLoading, error, refetch } = useConversations({
+  status: 'open',
+  limit: 10
+});
+```
+
+#### Parameters
+
+<ParamField path="options" type="UseConversationsOptions">
+  <Expandable title="options properties">
+    <ParamField path="limit" type="number" default={6}>
+      Number of conversations per page (max 100)
+    </ParamField>
+    <ParamField path="page" type="number" default={1}>
+      Page number for pagination
+    </ParamField>
+    <ParamField path="status" type="'open' | 'closed'">
+      Filter by conversation status
+    </ParamField>
+    <ParamField path="orderBy" type="'createdAt' | 'updatedAt'" default="updatedAt">
+      Field to order by
+    </ParamField>
+    <ParamField path="order" type="'asc' | 'desc'" default="desc">
+      Order direction
+    </ParamField>
+    <ParamField path="enabled" type="boolean" default={true}>
+      Whether to automatically fetch
+    </ParamField>
+    <ParamField path="refetchInterval" type="number | false" default={false}>
+      Auto-refetch interval in milliseconds
+    </ParamField>
+    <ParamField path="refetchOnWindowFocus" type="boolean" default={true}>
+      Whether to refetch when window regains focus
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+#### Returns
+
+<ResponseField name="conversations" type="Conversation[]">
+  Array of conversations
+</ResponseField>
+
+<ResponseField name="pagination" type="ConversationPagination | null">
+  Pagination metadata (page, limit, total, totalPages, hasMore)
+</ResponseField>
+
+<ResponseField name="isLoading" type="boolean">
+  Loading state
+</ResponseField>
+
+<ResponseField name="error" type="Error | null">
+  Any error that occurred
+</ResponseField>
+
+<ResponseField name="refetch" type="(args?) => Promise<ListConversationsResponse>">
+  Function to manually refetch conversations
+</ResponseField>
+
+---
+
+### useVisitor
+
+Access current visitor data and identification methods.
+
+```tsx
+import { useVisitor } from "@cossistant/react";
+
+const { visitor, identify, setVisitorMetadata } = useVisitor();
+```
+
+#### Returns
+
+<ResponseField name="visitor" type="PublicVisitor | null">
+  Current visitor information
+</ResponseField>
+
+<ResponseField name="identify" type="(params: IdentifyParams) => Promise<{ contactId: string; visitorId: string } | null>">
+  Function to identify the visitor
+  
+  <Expandable title="IdentifyParams">
+    <ParamField path="externalId" type="string">
+      External identifier from your system
+    </ParamField>
+    <ParamField path="email" type="string">
+      Email address
+    </ParamField>
+    <ParamField path="name" type="string">
+      Display name
+    </ParamField>
+    <ParamField path="image" type="string">
+      Avatar image URL
+    </ParamField>
+    <ParamField path="metadata" type="Record<string, unknown>">
+      Custom metadata
+    </ParamField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="setVisitorMetadata" type="(metadata: VisitorMetadata) => Promise<VisitorResponse | null>">
+  Update visitor metadata (requires prior identification)
+</ResponseField>
+
+---
+
+### useSendMessage
+
+Send messages with optimistic updates and file upload support.
+
+```tsx
+import { useSendMessage } from "@cossistant/react";
+
+const { mutate, mutateAsync, isPending, isUploading, error, reset } = useSendMessage();
+
+// Fire and forget
+mutate({
+  conversationId: 'conv_123',
+  message: 'Hello!',
+  files: [file1, file2]
+});
+
+// Await result
+const result = await mutateAsync({
+  message: 'Hello!',
+  onSuccess: (conversationId, messageId) => {
+    console.log('Message sent:', messageId);
+  }
+});
+```
+
+#### Returns
+
+<ResponseField name="mutate" type="(options: SendMessageOptions) => void">
+  Fire-and-forget mutation (errors are swallowed)
+</ResponseField>
+
+<ResponseField name="mutateAsync" type="(options: SendMessageOptions) => Promise<SendMessageResult | null>">
+  Async mutation that returns a promise
+  
+  <Expandable title="SendMessageOptions">
+    <ParamField path="conversationId" type="string">
+      Existing conversation ID (omit to create new conversation)
+    </ParamField>
+    <ParamField path="message" type="string" required>
+      Message text content
+    </ParamField>
+    <ParamField path="files" type="File[]">
+      Attachments to upload
+    </ParamField>
+    <ParamField path="messageId" type="string">
+      Optional custom message ID
+    </ParamField>
+    <ParamField path="defaultTimelineItems" type="TimelineItem[]">
+      Pre-fill timeline for new conversations
+    </ParamField>
+    <ParamField path="visitorId" type="string">
+      Override visitor ID
+    </ParamField>
+    <ParamField path="onSuccess" type="(conversationId: string, messageId: string) => void">
+      Success callback
+    </ParamField>
+    <ParamField path="onError" type="(error: Error) => void">
+      Error callback
+    </ParamField>
+    <ParamField path="onConversationInitiated" type="(conversationId: string) => void">
+      Called immediately when new conversation is initiated (before API call)
+    </ParamField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="isPending" type="boolean">
+  Whether the mutation is in progress
+</ResponseField>
+
+<ResponseField name="isUploading" type="boolean">
+  Whether files are being uploaded
+</ResponseField>
+
+<ResponseField name="error" type="Error | null">
+  Any error that occurred
+</ResponseField>
+
+<ResponseField name="reset" type="() => void">
+  Reset error and loading states
+</ResponseField>
+
+---
+
+### useConversationTimeline
+
+Load paginated timeline items for a conversation.
+
+```tsx
+import { useConversationTimeline } from "@cossistant/react";
+
+const { items, hasNextPage, fetchNextPage, isLoading } = useConversationTimeline(conversationId);
+```
+
+#### Parameters
+
+<ParamField path="conversationId" type="string | null" required>
+  ID of the conversation
+</ParamField>
+
+<ParamField path="options" type="object">
+  <Expandable title="options properties">
+    <ParamField path="limit" type="number" default={50}>
+      Number of items per page
+    </ParamField>
+    <ParamField path="enabled" type="boolean" default={true}>
+      Whether to automatically fetch
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+---
+
+### useCreateConversation
+
+Create a new conversation programmatically.
+
+```tsx
+import { useCreateConversation } from "@cossistant/react";
+
+const { mutate, mutateAsync, isPending } = useCreateConversation();
+```
+
+---
+
+### useFileUpload
+
+Upload files with progress tracking.
+
+```tsx
+import { useFileUpload } from "@cossistant/react";
+
+const { uploadFile, isUploading, progress, error } = useFileUpload();
+```
+
+---
+
+### useConversationSeen
+
+Mark conversations as seen.
+
+```tsx
+import { useConversationSeen } from "@cossistant/react";
+
+const { markSeen } = useConversationSeen();
+```
+
+---
+
+### useConversationTyping
+
+Report visitor typing state.
+
+```tsx
+import { useConversationTyping } from "@cossistant/react";
+
+const { setTyping } = useConversationTyping(conversationId);
+```
+
+---
+
+### useConversationProcessing
+
+Access AI processing state for conversations.
+
+```tsx
+import { useConversationProcessing } from "@cossistant/react";
+
+const { isProcessing, progress } = useConversationProcessing(conversationId);
+```
+
+---
+
+### useMessageComposer
+
+Manage message composer state (for building custom UIs).
+
+```tsx
+import { useMessageComposer } from "@cossistant/react";
+
+const {
+  value,
+  setValue,
+  files,
+  addFiles,
+  removeFile,
+  canSubmit,
+  submit,
+  reset
+} = useMessageComposer({
+  conversationId,
+  onSuccess: () => {
+    console.log('Message sent');
+  }
+});
+```
+
+---
+
+### useSupportHandle
+
+Access imperative support widget controls.
+
+```tsx
+import { useSupportHandle } from "@cossistant/react";
+
+const handle = useSupportHandle();
+handle?.open();
+handle?.startConversation('Hello!');
+```
+
+---
+
+### useFeedbackHandle
+
+Access imperative feedback widget controls.
+
+```tsx
+import { useFeedbackHandle } from "@cossistant/react";
+
+const handle = useFeedbackHandle();
+handle?.open();
+```
+
+---
+
+### useRealtimeConnection
+
+Access WebSocket connection state.
+
+```tsx
+import { useRealtimeConnection } from "@cossistant/react";
+
+const { isConnected, isConnecting, connectionState } = useRealtimeConnection();
+```
+
+---
+
+### useRealtime
+
+Subscribe to realtime events.
+
+```tsx
+import { useRealtime } from "@cossistant/react";
+
+useRealtime('message:created', (event) => {
+  console.log('New message:', event);
+});
+```
+
+---
+
+## Primitives
+
+Low-level components for building custom UIs. Import from `@cossistant/react/primitives` or via the `Primitives` namespace.
+
+```tsx
+import * as Primitives from "@cossistant/react";
+import { ConversationTimeline } from "@cossistant/react";
+```
+
+### ConversationTimeline
+
+Timeline display component.
+
+```tsx
+<Primitives.ConversationTimeline
+  conversationId={conversationId}
+  items={items}
+  renderItem={(item) => <CustomItem item={item} />}
+/>
+```
+
+### MultimodalInput
+
+Message composer with file support.
+
+```tsx
+<Primitives.MultimodalInput
+  value={value}
+  onChange={setValue}
+  onSubmit={handleSubmit}
+  placeholder="Type a message..."
+/>
+```
+
+### TimelineItem
+
+Single timeline item renderer.
+
+```tsx
+<Primitives.TimelineItem item={item}>
+  <Primitives.TimelineItemContent />
+  <Primitives.TimelineItemTimestamp />
+</Primitives.TimelineItem>
+```
+
+### TimelineItemGroup
+
+Group consecutive items from the same sender.
+
+```tsx
+<Primitives.TimelineItemGroup items={items}>
+  <Primitives.TimelineItemGroupHeader />
+  <Primitives.TimelineItemGroupContent />
+</Primitives.TimelineItemGroup>
+```
+
+### Avatar
+
+Display user/agent avatars.
+
+```tsx
+<Primitives.Avatar>
+  <Primitives.AvatarImage src={imageUrl} />
+  <Primitives.AvatarFallback>{initials}</Primitives.AvatarFallback>
+</Primitives.Avatar>
+```
+
+### TypingIndicator
+
+Display typing indicators.
+
+```tsx
+<Primitives.TypingIndicator participants={typingParticipants} />
+```
+
+### Button
+
+Styled button component.
+
+```tsx
+<Primitives.Button variant="primary" size="md">
+  Click me
+</Primitives.Button>
+```
+
+### Router
+
+Page routing system for custom UIs.
+
+```tsx
+<Primitives.Router>
+  <Primitives.PageDefinition name="custom" component={CustomPage} />
+</Primitives.Router>
+```
+
+### FeedbackRatingSelector
+
+Star rating input.
+
+```tsx
+<Primitives.FeedbackRatingSelector
+  value={rating}
+  onChange={setRating}
+  size="md"
+/>
+```
+
+### FeedbackCommentInput
+
+Textarea for feedback comments.
+
+```tsx
+<Primitives.FeedbackCommentInput
+  value={comment}
+  onChange={setComment}
+  placeholder="Tell us more..."
+/>
+```
+
+### FeedbackTopicSelect
+
+Dropdown for feedback topics.
+
+```tsx
+<Primitives.FeedbackTopicSelect
+  value={topic}
+  onChange={setTopic}
+  topics={['bug', 'feature', 'other']}
+/>
+```
+
+---
+
+## Utilities
+
+### Text Rendering
+
+```tsx
+import { Text } from "@cossistant/react";
+
+<Text id="support.home.title" />
+```
+
+### Localization
+
+```tsx
+import { useSupportText } from "@cossistant/react";
+
+const t = useSupportText();
+const title = t('support.home.title');
+```
+
+---
+
+## Events
+
+Type-safe event system for support widget.
+
+### useSupportEvents
+
+```tsx
+import { useSupportEvents } from "@cossistant/react";
+
+const events = useSupportEvents();
+events.on('conversationStart', (event) => {
+  console.log('Conversation started:', event);
+});
+```
+
+### Event Types
+
+<CodeGroup>
+```typescript ConversationStartEvent
+type ConversationStartEvent = {
+  conversationId: string;
+  timestamp: string;
+};
+```
+
+```typescript ConversationEndEvent
+type ConversationEndEvent = {
+  conversationId: string;
+  status: 'resolved' | 'spam';
+  timestamp: string;
+};
+```
+
+```typescript MessageSentEvent
+type MessageSentEvent = {
+  conversationId: string;
+  messageId: string;
+  content: string;
+  timestamp: string;
+};
+```
+
+```typescript MessageReceivedEvent
+type MessageReceivedEvent = {
+  conversationId: string;
+  messageId: string;
+  content: string;
+  senderType: 'ai' | 'team_member';
+  timestamp: string;
+};
+```
+
+```typescript ErrorEvent
+type ErrorEvent = {
+  error: Error;
+  context?: string;
+  timestamp: string;
+};
+```
+</CodeGroup>

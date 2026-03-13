@@ -1,0 +1,929 @@
+---
+title: "TypeScript Types Reference"
+description: "Complete type definitions for Cossistant SDK"
+---
+
+# TypeScript Types Reference
+
+Complete TypeScript type definitions from `@cossistant/types`.
+
+## Core Types
+
+### CossistantConfig
+
+Configuration object for initializing the SDK client.
+
+```typescript
+type CossistantConfig = {
+  apiUrl: string;
+  wsUrl: string;
+  apiKey?: string;
+  publicKey?: string;
+  userId?: string;
+  organizationId?: string;
+};
+```
+
+### CossistantError
+
+Standardized error object.
+
+```typescript
+type CossistantError = {
+  code: string;
+  message: string;
+  details?: Record<string, unknown>;
+};
+```
+
+### DefaultMessage
+
+Pre-filled messages for new conversations.
+
+```typescript
+type DefaultMessage = {
+  content: string;
+  senderType: SenderType;
+  senderId?: string;
+};
+```
+
+---
+
+## Enums
+
+### SenderType
+
+Identifies the sender of a message.
+
+```typescript
+enum SenderType {
+  VISITOR = "visitor",
+  TEAM_MEMBER = "team_member",
+  AI = "ai"
+}
+```
+
+### ConversationStatus
+
+Possible conversation states.
+
+```typescript
+enum ConversationStatus {
+  OPEN = "open",
+  RESOLVED = "resolved",
+  SPAM = "spam"
+}
+```
+
+### ConversationPriority
+
+Conversation priority levels.
+
+```typescript
+enum ConversationPriority {
+  LOW = "low",
+  NORMAL = "normal",
+  HIGH = "high",
+  URGENT = "urgent"
+}
+```
+
+### ConversationSentiment
+
+AI-detected sentiment.
+
+```typescript
+enum ConversationSentiment {
+  POSITIVE = "positive",
+  NEGATIVE = "negative",
+  NEUTRAL = "neutral"
+}
+```
+
+### ConversationTimelineType
+
+Timeline item types.
+
+```typescript
+enum ConversationTimelineType {
+  MESSAGE = "message",
+  EVENT = "event",
+  IDENTIFICATION = "identification",
+  TOOL = "tool"
+}
+```
+
+### ConversationEventType
+
+Event types for timeline events.
+
+```typescript
+enum ConversationEventType {
+  ASSIGNED = "assigned",
+  UNASSIGNED = "unassigned",
+  PARTICIPANT_REQUESTED = "participant_requested",
+  PARTICIPANT_JOINED = "participant_joined",
+  PARTICIPANT_LEFT = "participant_left",
+  STATUS_CHANGED = "status_changed",
+  PRIORITY_CHANGED = "priority_changed",
+  TAG_ADDED = "tag_added",
+  TAG_REMOVED = "tag_removed",
+  RESOLVED = "resolved",
+  REOPENED = "reopened",
+  VISITOR_BLOCKED = "visitor_blocked",
+  VISITOR_UNBLOCKED = "visitor_unblocked",
+  VISITOR_IDENTIFIED = "visitor_identified",
+  AI_ANALYZED = "ai_analyzed",
+  TITLE_GENERATED = "title_generated",
+  AI_ESCALATED = "ai_escalated",
+  AI_PAUSED = "ai_paused",
+  AI_RESUMED = "ai_resumed"
+}
+```
+
+### TimelineItemVisibility
+
+Visibility control for timeline items.
+
+```typescript
+enum TimelineItemVisibility {
+  PUBLIC = "public",
+  PRIVATE = "private"
+}
+```
+
+### ConversationParticipationStatus
+
+Participant status in conversations.
+
+```typescript
+enum ConversationParticipationStatus {
+  REQUESTED = "requested",
+  ACTIVE = "active",
+  LEFT = "left",
+  DECLINED = "declined"
+}
+```
+
+### WebsiteStatus
+
+Website activation status.
+
+```typescript
+enum WebsiteStatus {
+  ACTIVE = "active",
+  INACTIVE = "inactive"
+}
+```
+
+### APIKeyType
+
+API key types.
+
+```typescript
+enum APIKeyType {
+  PRIVATE = "private",
+  PUBLIC = "public"
+}
+```
+
+---
+
+## Visitor Types
+
+### VisitorMetadata
+
+Custom key-value metadata for visitors.
+
+```typescript
+type VisitorMetadata = Record<string, string | number | boolean | null>;
+```
+
+### PublicContact
+
+Contact information for identified visitors.
+
+```typescript
+type PublicContact = {
+  id: string;
+  name: string | null;
+  email: string | null;
+  image: string | null;
+  metadataHash?: string;
+};
+```
+
+### PublicVisitor
+
+Public visitor data exposed to client.
+
+```typescript
+type PublicVisitor = {
+  id: string;
+  isBlocked: boolean;
+  language: string | null;
+  contact: PublicContact | null;
+};
+```
+
+### VisitorResponse
+
+Complete visitor data (private API).
+
+```typescript
+type VisitorResponse = {
+  id: string;
+  browser: string | null;
+  browserVersion: string | null;
+  os: string | null;
+  osVersion: string | null;
+  device: string | null;
+  deviceType: string | null;
+  ip: string | null;
+  city: string | null;
+  region: string | null;
+  country: string | null;
+  countryCode: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  language: string | null;
+  timezone: string | null;
+  screenResolution: string | null;
+  viewport: string | null;
+  createdAt: string;
+  updatedAt: string;
+  lastSeenAt: string | null;
+  websiteId: string;
+  organizationId: string;
+  blockedAt: string | null;
+  blockedByUserId: string | null;
+  isBlocked: boolean;
+  attribution: VisitorAttribution | null;
+  currentPage: VisitorCurrentPage | null;
+  contact: Contact | null;
+};
+```
+
+### VisitorAttribution
+
+First-touch attribution data.
+
+```typescript
+type VisitorAttribution = {
+  version: 1;
+  firstTouch: {
+    channel: AttributionChannel;
+    isDirect: boolean;
+    referrer: {
+      url: string | null;
+      domain: string | null;
+    };
+    landing: {
+      url: string | null;
+      path: string | null;
+      title: string | null;
+    };
+    utm: {
+      source: string | null;
+      medium: string | null;
+      campaign: string | null;
+      content: string | null;
+      term: string | null;
+    };
+    clickIds: {
+      gclid: string | null;
+      gbraid: string | null;
+      wbraid: string | null;
+      fbclid: string | null;
+      msclkid: string | null;
+      ttclid: string | null;
+      li_fat_id: string | null;
+      twclid: string | null;
+    };
+    capturedAt: string;
+  };
+};
+```
+
+### AttributionChannel
+
+Derived acquisition channels.
+
+```typescript
+type AttributionChannel = 
+  | "direct"
+  | "email"
+  | "paid"
+  | "organic_search"
+  | "social"
+  | "referral";
+```
+
+### VisitorCurrentPage
+
+Current page context.
+
+```typescript
+type VisitorCurrentPage = {
+  url: string | null;
+  path: string | null;
+  title: string | null;
+  referrerUrl: string | null;
+  updatedAt: string;
+};
+```
+
+---
+
+## Conversation Types
+
+### Conversation
+
+Complete conversation object.
+
+```typescript
+type Conversation = {
+  id: string;
+  organizationId: string;
+  websiteId: string;
+  visitorId: string | null;
+  status: ConversationStatus;
+  priority: ConversationPriority;
+  sentiment: ConversationSentiment | null;
+  title: string | null;
+  channel: string;
+  lastTimelineItem: TimelineItem | null;
+  visitorLastSeenAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+  resolvedAt: string | null;
+  spamAt: string | null;
+};
+```
+
+### ConversationSeen
+
+Seen state tracking.
+
+```typescript
+type ConversationSeen = {
+  id: string;
+  conversationId: string;
+  userId: string | null;
+  visitorId: string | null;
+  aiAgentId: string | null;
+  lastSeenAt: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+};
+```
+
+---
+
+## Timeline Item Types
+
+### TimelineItem
+
+Base timeline item structure (AI SDK v6 compatible).
+
+```typescript
+type TimelineItem = {
+  id: string;
+  conversationId: string;
+  organizationId: string;
+  visibility: TimelineItemVisibility;
+  type: ConversationTimelineType;
+  text: string | null;
+  tool?: string | null;
+  parts: TimelineItemParts;
+  userId: string | null;
+  aiAgentId: string | null;
+  visitorId: string | null;
+  createdAt: string;
+  deletedAt?: string | null;
+};
+```
+
+### TimelineItemParts
+
+AI SDK v6 compatible parts array.
+
+```typescript
+type TimelineItemParts = Array<
+  | TextPart
+  | ReasoningPart
+  | ToolPart
+  | SourceUrlPart
+  | SourceDocumentPart
+  | StepStartPart
+  | FilePart
+  | ImagePart
+  | TimelinePartEvent
+  | TimelinePartMetadata
+>;
+```
+
+### TextPart
+
+Plain text content.
+
+```typescript
+type TextPart = {
+  type: "text";
+  text: string;
+  state?: "streaming" | "done";
+};
+```
+
+### ReasoningPart
+
+AI chain-of-thought reasoning.
+
+```typescript
+type ReasoningPart = {
+  type: "reasoning";
+  text: string;
+  state?: "streaming" | "done";
+  providerMetadata?: CossistantProviderMetadata;
+};
+```
+
+### ToolPart
+
+AI tool invocation.
+
+```typescript
+type ToolPart = {
+  type: `tool-${string}`; // e.g., "tool-search_knowledge"
+  toolCallId: string;
+  toolName: string;
+  input: Record<string, unknown>;
+  output?: unknown;
+  state: "partial" | "result" | "error";
+  errorText?: string;
+  callProviderMetadata?: CossistantProviderMetadata;
+  providerMetadata?: CossistantProviderMetadata;
+};
+```
+
+### SourceUrlPart
+
+URL citation.
+
+```typescript
+type SourceUrlPart = {
+  type: "source-url";
+  sourceId: string;
+  url: string;
+  title?: string;
+  providerMetadata?: CossistantProviderMetadata;
+};
+```
+
+### SourceDocumentPart
+
+Document citation.
+
+```typescript
+type SourceDocumentPart = {
+  type: "source-document";
+  sourceId: string;
+  mediaType: string;
+  title: string;
+  filename?: string;
+  providerMetadata?: CossistantProviderMetadata;
+};
+```
+
+### StepStartPart
+
+Multi-step boundary marker.
+
+```typescript
+type StepStartPart = {
+  type: "step-start";
+};
+```
+
+### FilePart
+
+File attachment.
+
+```typescript
+type FilePart = {
+  type: "file";
+  url: string;
+  mediaType: string;
+  filename?: string;
+  size?: number;
+};
+```
+
+### ImagePart
+
+Image attachment with dimensions.
+
+```typescript
+type ImagePart = {
+  type: "image";
+  url: string;
+  mediaType: string;
+  filename?: string;
+  size?: number;
+  width?: number;
+  height?: number;
+};
+```
+
+### TimelinePartEvent
+
+Conversation event.
+
+```typescript
+type TimelinePartEvent = {
+  type: "event";
+  eventType: ConversationEventType;
+  actorUserId: string | null;
+  actorAiAgentId: string | null;
+  targetUserId: string | null;
+  targetAiAgentId: string | null;
+  message?: string | null;
+};
+```
+
+### TimelinePartMetadata
+
+Message metadata.
+
+```typescript
+type TimelinePartMetadata = {
+  type: "metadata";
+  source: "email" | "widget" | "api";
+};
+```
+
+### CossistantProviderMetadata
+
+Extension point for custom metadata.
+
+```typescript
+type CossistantProviderMetadata = {
+  cossistant?: {
+    visibility?: "public" | "private";
+    progressMessage?: string;
+    knowledgeId?: string;
+    toolTimeline?: {
+      logType: "customer_facing" | "log" | "decision";
+      triggerMessageId: string;
+      workflowRunId: string;
+      triggerVisibility?: "public" | "private";
+    };
+  };
+};
+```
+
+---
+
+## Request/Response Types
+
+### Conversation API
+
+<CodeGroup>
+```typescript CreateConversationRequest
+type CreateConversationRequestBody = {
+  visitorId?: string;
+  conversationId?: string;
+  defaultTimelineItems: TimelineItem[];
+  channel?: string;
+};
+```
+
+```typescript CreateConversationResponse
+type CreateConversationResponseBody = {
+  initialTimelineItems: TimelineItem[];
+  conversation: Conversation;
+};
+```
+
+```typescript ListConversationsRequest
+type ListConversationsRequest = {
+  visitorId?: string;
+  page?: number;
+  limit?: number;
+  status?: "open" | "closed";
+  orderBy?: "createdAt" | "updatedAt";
+  order?: "asc" | "desc";
+};
+```
+
+```typescript ListConversationsResponse
+type ListConversationsResponse = {
+  conversations: Conversation[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasMore: boolean;
+  };
+};
+```
+
+```typescript GetConversationRequest
+type GetConversationRequest = {
+  conversationId: string;
+};
+```
+
+```typescript GetConversationResponse
+type GetConversationResponse = {
+  conversation: Conversation;
+};
+```
+</CodeGroup>
+
+### Timeline API
+
+<CodeGroup>
+```typescript GetConversationTimelineItemsRequest
+type GetConversationTimelineItemsRequest = {
+  limit?: number;
+  cursor?: string | null;
+};
+```
+
+```typescript GetConversationTimelineItemsResponse
+type GetConversationTimelineItemsResponse = {
+  items: TimelineItem[];
+  nextCursor: string | null;
+  hasNextPage: boolean;
+};
+```
+
+```typescript SendTimelineItemRequest
+type SendTimelineItemRequest = {
+  conversationId: string;
+  item: {
+    id?: string;
+    type?: ConversationTimelineType;
+    text: string;
+    parts?: TimelineItemParts;
+    visibility?: TimelineItemVisibility;
+    tool?: string | null;
+    userId?: string | null;
+    aiAgentId?: string | null;
+    visitorId?: string | null;
+    createdAt?: string;
+  };
+};
+```
+
+```typescript SendTimelineItemResponse
+type SendTimelineItemResponse = {
+  item: TimelineItem;
+};
+```
+</CodeGroup>
+
+### Visitor API
+
+<CodeGroup>
+```typescript UpdateVisitorRequest
+type UpdateVisitorRequest = {
+  externalId?: string;
+  name?: string;
+  email?: string;
+  browser?: string;
+  browserVersion?: string;
+  os?: string;
+  osVersion?: string;
+  device?: string;
+  deviceType?: "desktop" | "mobile" | "tablet" | "unknown";
+  ip?: string;
+  city?: string;
+  region?: string;
+  country?: string;
+  countryCode?: string;
+  latitude?: number;
+  longitude?: number;
+  language?: string;
+  timezone?: string;
+  screenResolution?: string;
+  viewport?: string;
+  attribution?: VisitorAttribution;
+  currentPage?: VisitorCurrentPage;
+  metadata?: VisitorMetadata;
+};
+```
+
+```typescript UpdateVisitorMetadataRequest
+type UpdateVisitorMetadataRequest = {
+  metadata: VisitorMetadata;
+};
+```
+</CodeGroup>
+
+### Seen & Typing
+
+<CodeGroup>
+```typescript MarkConversationSeenRequest
+type MarkConversationSeenRequestBody = {
+  visitorId?: string;
+};
+```
+
+```typescript MarkConversationSeenResponse
+type MarkConversationSeenResponseBody = {
+  conversationId: string;
+  lastSeenAt: string;
+};
+```
+
+```typescript SetConversationTypingRequest
+type SetConversationTypingRequestBody = {
+  isTyping: boolean;
+  visitorPreview?: string;
+  visitorId?: string;
+};
+```
+
+```typescript SetConversationTypingResponse
+type SetConversationTypingResponseBody = {
+  conversationId: string;
+  isTyping: boolean;
+  visitorPreview: string | null;
+  sentAt: string;
+};
+```
+</CodeGroup>
+
+### Rating & Feedback
+
+<CodeGroup>
+```typescript SubmitConversationRatingRequest
+type SubmitConversationRatingRequestBody = {
+  rating: number; // 1-5
+  comment?: string;
+  visitorId?: string;
+};
+```
+
+```typescript SubmitConversationRatingResponse
+type SubmitConversationRatingResponseBody = {
+  conversationId: string;
+  rating: number;
+  ratedAt: string;
+};
+```
+</CodeGroup>
+
+---
+
+## Realtime Event Types
+
+Events received over WebSocket connection.
+
+### Base Event Structure
+
+```typescript
+type RealtimeEvent<T = unknown> = {
+  type: string;
+  data: T;
+  timestamp: string;
+};
+```
+
+### Event Types
+
+<CodeGroup>
+```typescript message:created
+type MessageCreatedEvent = {
+  type: "message:created";
+  data: {
+    conversationId: string;
+    item: TimelineItem;
+  };
+};
+```
+
+```typescript conversation:updated
+type ConversationUpdatedEvent = {
+  type: "conversation:updated";
+  data: {
+    conversation: Conversation;
+  };
+};
+```
+
+```typescript conversation:seen
+type ConversationSeenEvent = {
+  type: "conversation:seen";
+  data: {
+    conversationId: string;
+    actorType: "visitor" | "user" | "ai_agent";
+    actorId: string;
+    lastSeenAt: string;
+  };
+};
+```
+
+```typescript conversation:typing
+type ConversationTypingEvent = {
+  type: "conversation:typing";
+  data: {
+    conversationId: string;
+    actorType: "visitor" | "user" | "ai_agent";
+    actorId: string;
+    isTyping: boolean;
+    preview?: string;
+  };
+};
+```
+
+```typescript processing:progress
+type ProcessingProgressEvent = {
+  type: "processing:progress";
+  data: {
+    conversationId: string;
+    timelineItemId: string;
+    progress: number; // 0-100
+    message?: string;
+  };
+};
+```
+
+```typescript processing:completed
+type ProcessingCompletedEvent = {
+  type: "processing:completed";
+  data: {
+    conversationId: string;
+    timelineItemId: string;
+  };
+};
+```
+</CodeGroup>
+
+---
+
+## Utility Types
+
+### Generic Response Wrapper
+
+```typescript
+type ApiResponse<T> = {
+  data: T;
+  error?: never;
+} | {
+  data?: never;
+  error: CossistantError;
+};
+```
+
+### Pagination
+
+```typescript
+type Pagination = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasMore: boolean;
+};
+```
+
+### Cursor Pagination
+
+```typescript
+type CursorPagination<T> = {
+  items: T[];
+  nextCursor: string | null;
+  hasNextPage: boolean;
+};
+```
+
+---
+
+## Type Guards
+
+Helper functions for type narrowing.
+
+```typescript
+function isTextPart(part: TimelineItemParts[number]): part is TextPart {
+  return part.type === "text";
+}
+
+function isToolPart(part: TimelineItemParts[number]): part is ToolPart {
+  return part.type.startsWith("tool-");
+}
+
+function isFilePart(part: TimelineItemParts[number]): part is FilePart {
+  return part.type === "file";
+}
+
+function isImagePart(part: TimelineItemParts[number]): part is ImagePart {
+  return part.type === "image";
+}
+```

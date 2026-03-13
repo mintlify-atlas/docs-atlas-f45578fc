@@ -1,0 +1,490 @@
+---
+title: "Quick Options"
+description: "Add suggested quick response buttons to guide user interactions"
+---
+
+## Overview
+
+Quick options are suggested questions or actions that appear as clickable buttons in the support widget. They help guide users toward common tasks and reduce friction in getting help.
+
+## Basic Usage
+
+<CodeGroup>
+
+```tsx Next.js
+import { SupportConfig } from "@cossistant/next";
+
+export default function Page() {
+  return (
+    <>
+      <SupportConfig
+        quickOptions={[
+          "How do I reset my password?",
+          "Upgrade my plan",
+          "Contact sales"
+        ]}
+      />
+      {/* Page content */}
+    </>
+  );
+}
+```
+
+```tsx React
+import { SupportConfig } from "@cossistant/react";
+
+function App() {
+  return (
+    <>
+      <SupportConfig
+        quickOptions={[
+          "How do I reset my password?",
+          "Upgrade my plan",
+          "Contact sales"
+        ]}
+      />
+      {/* App content */}
+    </>
+  );
+}
+```
+
+</CodeGroup>
+
+## How It Works
+
+When a user clicks a quick option:
+1. The text is automatically sent as a message from the visitor
+2. The AI agent or human support team receives the message
+3. The conversation continues normally from there
+
+<Note>
+  Quick options disappear after the user sends their first message, keeping the interface clean for ongoing conversations.
+</Note>
+
+## Page-Specific Options
+
+Customize quick options based on the user's current page:
+
+<Tabs>
+  <Tab title="Pricing Page">
+    ```tsx
+    // app/pricing/page.tsx
+    <SupportConfig
+      quickOptions={[
+        "Compare plans",
+        "Talk to sales",
+        "See all features",
+        "Calculate ROI"
+      ]}
+    />
+    ```
+  </Tab>
+  
+  <Tab title="Dashboard">
+    ```tsx
+    // app/dashboard/page.tsx
+    <SupportConfig
+      quickOptions={[
+        "How do I add team members?",
+        "Export data",
+        "View usage limits",
+        "Get API keys"
+      ]}
+    />
+    ```
+  </Tab>
+  
+  <Tab title="Documentation">
+    ```tsx
+    // docs/page.tsx
+    <SupportConfig
+      quickOptions={[
+        "Search documentation",
+        "API reference",
+        "Code examples",
+        "Integration guides"
+      ]}
+    />
+    ```
+  </Tab>
+  
+  <Tab title="Billing">
+    ```tsx
+    // app/billing/page.tsx
+    <SupportConfig
+      quickOptions={[
+        "Update payment method",
+        "Download invoice",
+        "Change plan",
+        "Cancel subscription"
+      ]}
+    />
+    ```
+  </Tab>
+</Tabs>
+
+## Dynamic Options
+
+Generate options based on user context:
+
+```tsx
+import { SupportConfig } from "@cossistant/next";
+
+export default function Page() {
+  const user = await getCurrentUser();
+  
+  const options = user.plan === "free" 
+    ? [
+        "Upgrade to Pro",
+        "See pricing",
+        "Compare features"
+      ]
+    : [
+        "Manage subscription",
+        "View invoices",
+        "Contact account manager"
+      ];
+  
+  return <SupportConfig quickOptions={options} />;
+}
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Keep it short (3-5 options)">
+    Too many options can overwhelm users. Stick to 3-5 most common actions.
+    
+    ```tsx
+    // ✅ Good: Focused and actionable
+    quickOptions={[
+      "Reset password",
+      "Upgrade plan",
+      "Contact support"
+    ]}
+    
+    // ❌ Too many: Analysis paralysis
+    quickOptions={[
+      "Reset password",
+      "Change email",
+      "Update profile",
+      "Manage team",
+      "View billing",
+      "Download data",
+      "API settings",
+      "Security settings"
+    ]}
+    ```
+  </Accordion>
+  
+  <Accordion title="Use clear, actionable language">
+    Options should be specific and action-oriented:
+    
+    ```tsx
+    // ✅ Clear actions
+    quickOptions={[
+      "Track my order",
+      "Return an item",
+      "Update shipping address"
+    ]}
+    
+    // ❌ Vague
+    quickOptions={[
+      "Orders",
+      "Returns",
+      "Shipping"
+    ]}
+    ```
+  </Accordion>
+  
+  <Accordion title="Match user intent">
+    Consider what users are trying to do on each page:
+    - Pricing page → Questions about plans
+    - Dashboard → How-to questions
+    - Billing → Payment and subscription actions
+    - Settings → Configuration help
+  </Accordion>
+  
+  <Accordion title="Update contextually">
+    Change options as users navigate through your app:
+    
+    ```tsx
+    // Different options per route
+    const optionsByRoute = {
+      "/pricing": ["Compare plans", "Talk to sales"],
+      "/dashboard": ["Add team member", "View API docs"],
+      "/settings": ["Reset password", "Update billing"]
+    };
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Combining with Default Messages
+
+Use quick options together with default messages for a complete experience:
+
+```tsx
+import { SupportConfig } from "@cossistant/next";
+import { SenderType } from "@cossistant/types";
+
+<SupportConfig
+  defaultMessages={[
+    {
+      content: "Hi! I can help with common questions:",
+      senderType: SenderType.AI_AGENT
+    }
+  ]}
+  quickOptions={[
+    "How do I get started?",
+    "Show me pricing",
+    "Talk to sales"
+  ]}
+/>
+```
+
+## Real-World Examples
+
+<Tabs>
+  <Tab title="SaaS Product">
+    ```tsx
+    // Homepage
+    <SupportConfig
+      quickOptions={[
+        "What is Acme?",
+        "See a demo",
+        "View pricing",
+        "Start free trial"
+      ]}
+    />
+    ```
+  </Tab>
+  
+  <Tab title="E-commerce">
+    ```tsx
+    // Product page
+    <SupportConfig
+      quickOptions={[
+        "Check shipping cost",
+        "Return policy",
+        "Size guide",
+        "Track my order"
+      ]}
+    />
+    ```
+  </Tab>
+  
+  <Tab title="Developer Platform">
+    ```tsx
+    // API docs
+    <SupportConfig
+      quickOptions={[
+        "API quick start",
+        "Authentication guide",
+        "Rate limits",
+        "Webhook setup"
+      ]}
+    />
+    ```
+  </Tab>
+  
+  <Tab title="Onboarding">
+    ```tsx
+    // First login
+    <SupportConfig
+      quickOptions={[
+        "Complete setup",
+        "Import data",
+        "Invite team",
+        "Watch tutorial"
+      ]}
+    />
+    ```
+  </Tab>
+</Tabs>
+
+## User-Specific Options
+
+Personalize options based on user data:
+
+```tsx
+import { IdentifySupportVisitor, SupportConfig } from "@cossistant/next";
+
+export default function Layout({ children }) {
+  const user = await getCurrentUser();
+  
+  // Different options for new vs. returning users
+  const options = user.loginCount === 1
+    ? [
+        "Complete onboarding",
+        "Import data",
+        "Watch tutorial"
+      ]
+    : [
+        "View recent activity",
+        "Manage team",
+        "Check usage"
+      ];
+  
+  return (
+    <>
+      <IdentifySupportVisitor
+        externalId={user.id}
+        email={user.email}
+      />
+      <SupportConfig quickOptions={options} />
+      {children}
+    </>
+  );
+}
+```
+
+## A/B Testing Quick Options
+
+Track which options perform best:
+
+```tsx
+import { SupportConfig } from "@cossistant/next";
+import { useAnalytics } from "./analytics";
+
+function App() {
+  const { track } = useAnalytics();
+  
+  const variant = Math.random() > 0.5 ? "a" : "b";
+  
+  const options = variant === "a"
+    ? ["Get help", "View docs", "Contact sales"]  // Control
+    : ["Quick help", "Read guides", "Talk to us"];  // Test
+  
+  track("quick_options_variant", { variant });
+  
+  return <SupportConfig quickOptions={options} />;
+}
+```
+
+## Language and Localization
+
+Translate quick options for international users:
+
+```tsx
+import { SupportConfig } from "@cossistant/next";
+
+function App() {
+  const locale = useLocale();
+  
+  const options = {
+    en: ["Reset password", "Upgrade plan", "Contact support"],
+    es: ["Restablecer contraseña", "Actualizar plan", "Contactar soporte"],
+    fr: ["Réinitialiser le mot de passe", "Mettre à niveau", "Contacter le support"]
+  };
+  
+  return <SupportConfig quickOptions={options[locale]} />;
+}
+```
+
+## Behavior Notes
+
+<Info>
+  - Quick options only appear when starting a **new conversation**
+  - They disappear after the user sends their first message
+  - Clicking an option sends it as a regular message
+  - Options are **not persisted** until clicked
+  - Rendering `SupportConfig` multiple times uses the most recent values
+</Info>
+
+## Advanced Patterns
+
+### Conditional Options
+
+Show different options based on feature flags:
+
+```tsx
+const user = await getCurrentUser();
+
+const options = [
+  "Get help",
+  "View docs",
+];
+
+if (user.features.includes("priority-support")) {
+  options.push("Talk to account manager");
+}
+
+if (user.plan === "enterprise") {
+  options.push("Schedule training");
+}
+
+<SupportConfig quickOptions={options} />
+```
+
+### Error Page Options
+
+Help users recover from errors:
+
+```tsx
+// app/error.tsx
+"use client";
+
+export default function Error({ error, reset }) {
+  return (
+    <>
+      <SupportConfig
+        quickOptions={[
+          "What happened?",
+          "Report this bug",
+          "Go to dashboard"
+        ]}
+      />
+      <h1>Something went wrong</h1>
+      <button onClick={reset}>Try again</button>
+    </>
+  );
+}
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Options not appearing">
+    Ensure `SupportConfig` is inside `SupportProvider`:
+    
+    ```tsx
+    <SupportProvider>
+      <SupportConfig quickOptions={[...]} />
+      <Support />
+    </SupportProvider>
+    ```
+  </Accordion>
+  
+  <Accordion title="Options persist after first message">
+    This is expected behavior. Options disappear after the user sends a message to keep the UI clean.
+  </Accordion>
+  
+  <Accordion title="Wrong options showing">
+    Check that you're updating the `quickOptions` prop when navigating:
+    
+    ```tsx
+    // useEffect to update on route change
+    useEffect(() => {
+      setQuickOptions(getOptionsForRoute(pathname));
+    }, [pathname]);
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Default Messages" icon="comment" href="/integrations/default-messages">
+    Customize conversation starters
+  </Card>
+  <Card title="Identify Visitors" icon="user" href="/integrations/identify-visitors">
+    Personalize options with user data
+  </Card>
+  <Card title="Text Localization" icon="language" href="/customization/text-localization">
+    Translate options to other languages
+  </Card>
+  <Card title="Events" icon="bolt" href="/customization/events">
+    Track when options are clicked
+  </Card>
+</CardGroup>

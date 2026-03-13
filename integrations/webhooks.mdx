@@ -1,0 +1,472 @@
+---
+title: "Webhooks"
+description: "Receive real-time notifications about events in your Cossistant workspace"
+---
+
+## Overview
+
+Webhooks allow you to receive HTTP callbacks when specific events occur in your Cossistant workspace. Use webhooks to sync data with external systems, trigger custom workflows, or integrate with third-party tools.
+
+<Note>
+  Webhook functionality is available through the Cossistant dashboard. Configure webhook endpoints and select which events to receive.
+</Note>
+
+## Common Use Cases
+
+<CardGroup cols={2}>
+  <Card title="Sync to CRM" icon="address-book">
+    Push new contacts and conversation data to Salesforce, HubSpot, or your custom CRM
+  </Card>
+  <Card title="Notify Teams" icon="bell">
+    Send Slack or Discord notifications when high-priority conversations are created
+  </Card>
+  <Card title="Update Analytics" icon="chart-line">
+    Stream conversation metrics to your analytics platform in real-time
+  </Card>
+  <Card title="Trigger Workflows" icon="diagram-project">
+    Start automation workflows in Zapier, Make, or custom services
+  </Card>
+</CardGroup>
+
+## Webhook Events
+
+Cossistant can send webhooks for the following event types:
+
+### Conversation Events
+
+<ParamField path="conversation.created" type="event">
+  Triggered when a new conversation is started.
+</ParamField>
+
+<ParamField path="conversation.updated" type="event">
+  Triggered when conversation metadata changes (status, priority, tags).
+</ParamField>
+
+<ParamField path="conversation.assigned" type="event">
+  Triggered when a conversation is assigned to a team member.
+</ParamField>
+
+<ParamField path="conversation.closed" type="event">
+  Triggered when a conversation is marked as resolved or closed.
+</ParamField>
+
+### Message Events
+
+<ParamField path="message.created" type="event">
+  Triggered when a new message is sent in a conversation.
+</ParamField>
+
+<ParamField path="message.updated" type="event">
+  Triggered when a message is edited or updated.
+</ParamField>
+
+### Contact Events
+
+<ParamField path="contact.identified" type="event">
+  Triggered when a visitor is identified and linked to a contact.
+</ParamField>
+
+<ParamField path="contact.updated" type="event">
+  Triggered when contact information or metadata changes.
+</ParamField>
+
+### AI Agent Events
+
+<ParamField path="ai_agent.started" type="event">
+  Triggered when an AI agent begins processing a conversation.
+</ParamField>
+
+<ParamField path="ai_agent.completed" type="event">
+  Triggered when an AI agent finishes processing and responds.
+</ParamField>
+
+<ParamField path="ai_agent.escalated" type="event">
+  Triggered when an AI agent escalates to human support.
+</ParamField>
+
+## Webhook Payload Structure
+
+All webhooks follow a consistent structure:
+
+```json
+{
+  "id": "webhook_01J5K2M3N4P5Q6R7S8T9V0W1X2",
+  "event": "conversation.created",
+  "timestamp": "2024-03-13T10:30:00.000Z",
+  "websiteId": "website_abc123",
+  "data": {
+    // Event-specific data
+  }
+}
+```
+
+<ResponseField name="id" type="string">
+  Unique identifier for this webhook delivery. Use for idempotency.
+</ResponseField>
+
+<ResponseField name="event" type="string">
+  The event type that triggered this webhook.
+</ResponseField>
+
+<ResponseField name="timestamp" type="string">
+  ISO 8601 timestamp when the event occurred.
+</ResponseField>
+
+<ResponseField name="websiteId" type="string">
+  ID of the website where the event occurred.
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Event-specific payload. See [Event Payloads](#event-payloads) below.
+</ResponseField>
+
+## Event Payloads
+
+### conversation.created
+
+```json
+{
+  "id": "webhook_...",
+  "event": "conversation.created",
+  "timestamp": "2024-03-13T10:30:00.000Z",
+  "websiteId": "website_abc123",
+  "data": {
+    "conversation": {
+      "id": "conv_123",
+      "status": "open",
+      "priority": "normal",
+      "visitorId": "visitor_456",
+      "contactId": "contact_789",
+      "createdAt": "2024-03-13T10:30:00.000Z"
+    },
+    "visitor": {
+      "id": "visitor_456",
+      "externalId": "user_123",
+      "email": "user@example.com"
+    }
+  }
+}
+```
+
+### message.created
+
+```json
+{
+  "id": "webhook_...",
+  "event": "message.created",
+  "timestamp": "2024-03-13T10:31:00.000Z",
+  "websiteId": "website_abc123",
+  "data": {
+    "message": {
+      "id": "msg_123",
+      "conversationId": "conv_123",
+      "content": "How do I reset my password?",
+      "senderType": "visitor",
+      "createdAt": "2024-03-13T10:31:00.000Z"
+    },
+    "conversation": {
+      "id": "conv_123",
+      "status": "open"
+    }
+  }
+}
+```
+
+### contact.identified
+
+```json
+{
+  "id": "webhook_...",
+  "event": "contact.identified",
+  "timestamp": "2024-03-13T10:29:00.000Z",
+  "websiteId": "website_abc123",
+  "data": {
+    "contact": {
+      "id": "contact_789",
+      "externalId": "user_123",
+      "email": "user@example.com",
+      "name": "Jane Doe",
+      "metadata": {
+        "plan": "premium",
+        "signupDate": "2024-01-15"
+      }
+    },
+    "visitor": {
+      "id": "visitor_456"
+    }
+  }
+}
+```
+
+## Setting Up Webhooks
+
+<Steps>
+  <Step title="Create Webhook Endpoint">
+    Create an HTTPS endpoint in your application to receive webhook payloads:
+    
+    ```typescript
+    // api/webhooks/cossistant/route.ts
+    export async function POST(request: Request) {
+      const payload = await request.json();
+      
+      // Verify signature (see Security below)
+      const signature = request.headers.get("x-cossistant-signature");
+      if (!verifySignature(payload, signature)) {
+        return new Response("Invalid signature", { status: 401 });
+      }
+      
+      // Process event
+      await handleWebhook(payload);
+      
+      return new Response("OK", { status: 200 });
+    }
+    ```
+  </Step>
+  
+  <Step title="Configure in Dashboard">
+    1. Go to Settings → Webhooks in your Cossistant dashboard
+    2. Click "Add Webhook"
+    3. Enter your endpoint URL
+    4. Select which events to receive
+    5. Save the webhook
+  </Step>
+  
+  <Step title="Test the Integration">
+    Use the "Send Test" button in the dashboard to send a test payload to your endpoint.
+  </Step>
+</Steps>
+
+## Security
+
+### Signature Verification
+
+All webhooks include an `x-cossistant-signature` header for verification:
+
+```typescript
+import { createHmac } from "crypto";
+
+function verifySignature(
+  payload: unknown,
+  signature: string,
+  secret: string
+): boolean {
+  const hmac = createHmac("sha256", secret);
+  hmac.update(JSON.stringify(payload));
+  const expectedSignature = hmac.digest("hex");
+  
+  return signature === expectedSignature;
+}
+```
+
+<Warning>
+  Always verify webhook signatures before processing payloads. This prevents unauthorized access and ensures webhooks came from Cossistant.
+</Warning>
+
+### Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use HTTPS only">
+    Webhook endpoints must use HTTPS. HTTP endpoints are not supported for security reasons.
+  </Accordion>
+  
+  <Accordion title="Implement idempotency">
+    Use the webhook `id` to deduplicate deliveries:
+    
+    ```typescript
+    const processedWebhooks = new Set();
+    
+    async function handleWebhook(payload) {
+      if (processedWebhooks.has(payload.id)) {
+        return; // Already processed
+      }
+      
+      // Process webhook...
+      
+      processedWebhooks.add(payload.id);
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Respond quickly">
+    Return a 200 response as soon as you receive the webhook. Process heavy workloads asynchronously:
+    
+    ```typescript
+    export async function POST(request: Request) {
+      const payload = await request.json();
+      
+      // Queue for async processing
+      await queue.add("process-webhook", payload);
+      
+      // Respond immediately
+      return new Response("OK", { status: 200 });
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Handle retries gracefully">
+    Cossistant retries failed webhooks with exponential backoff. Make sure your endpoint can handle duplicate deliveries.
+  </Accordion>
+</AccordionGroup>
+
+## Example Integrations
+
+### Slack Notifications
+
+```typescript
+// api/webhooks/cossistant/route.ts
+import { WebClient } from "@slack/web-api";
+
+const slack = new WebClient(process.env.SLACK_TOKEN);
+
+export async function POST(request: Request) {
+  const payload = await request.json();
+  
+  if (payload.event === "conversation.created") {
+    await slack.chat.postMessage({
+      channel: "#support",
+      text: `New conversation from ${payload.data.visitor.email}`,
+      blocks: [
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: `*New Conversation*\nFrom: ${payload.data.visitor.email}\nPriority: ${payload.data.conversation.priority}`
+          }
+        },
+        {
+          type: "actions",
+          elements: [
+            {
+              type: "button",
+              text: { type: "plain_text", text: "View" },
+              url: `https://app.cossistant.com/conversations/${payload.data.conversation.id}`
+            }
+          ]
+        }
+      ]
+    });
+  }
+  
+  return new Response("OK", { status: 200 });
+}
+```
+
+### CRM Sync
+
+```typescript
+// Sync contacts to external CRM
+export async function POST(request: Request) {
+  const payload = await request.json();
+  
+  if (payload.event === "contact.identified") {
+    const { contact } = payload.data;
+    
+    await fetch("https://api.yourcrm.com/contacts", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.CRM_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        email: contact.email,
+        name: contact.name,
+        externalId: contact.externalId,
+        customFields: contact.metadata
+      })
+    });
+  }
+  
+  return new Response("OK", { status: 200 });
+}
+```
+
+### Analytics Tracking
+
+```typescript
+// Track conversation metrics
+export async function POST(request: Request) {
+  const payload = await request.json();
+  
+  if (payload.event === "conversation.closed") {
+    await analytics.track({
+      userId: payload.data.conversation.contactId,
+      event: "Conversation Resolved",
+      properties: {
+        conversationId: payload.data.conversation.id,
+        duration: payload.data.conversation.duration,
+        messageCount: payload.data.conversation.messageCount,
+        resolution: payload.data.conversation.resolution
+      }
+    });
+  }
+  
+  return new Response("OK", { status: 200 });
+}
+```
+
+## Retry Policy
+
+Cossistant retries failed webhook deliveries using exponential backoff:
+
+1. Immediate delivery
+2. Retry after 1 minute
+3. Retry after 5 minutes
+4. Retry after 15 minutes
+5. Retry after 1 hour
+6. Retry after 3 hours
+7. Retry after 6 hours
+
+After 7 attempts, the webhook is marked as failed and no longer retried.
+
+<Info>
+  A webhook is considered failed if your endpoint returns a non-2xx status code or times out after 30 seconds.
+</Info>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Webhooks not being received">
+    Check that:
+    1. Your endpoint is publicly accessible via HTTPS
+    2. The endpoint returns a 200 status code within 30 seconds
+    3. The webhook is enabled in the dashboard
+    4. You've selected the correct events to receive
+  </Accordion>
+  
+  <Accordion title="Signature verification failing">
+    Ensure you're:
+    1. Using the correct webhook secret from the dashboard
+    2. Computing the HMAC on the raw request body (before parsing JSON)
+    3. Comparing signatures using a constant-time comparison
+  </Accordion>
+  
+  <Accordion title="Receiving duplicate webhooks">
+    This is expected behavior during retries. Implement idempotency using the webhook `id` field.
+  </Accordion>
+  
+  <Accordion title="Webhooks timing out">
+    Your endpoint must respond within 30 seconds. For heavy processing, queue the work and respond immediately:
+    
+    ```typescript
+    await queue.add(payload);
+    return new Response("OK", { status: 200 });
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Events" icon="bolt" href="/customization/events">
+    Client-side event handling
+  </Card>
+  <Card title="WebSocket API" icon="plug" href="/api/websocket-connection">
+    Real-time event streaming
+  </Card>
+  <Card title="REST API" icon="code" href="/api/introduction">
+    Direct API access
+  </Card>
+  <Card title="Identify Visitors" icon="user" href="/integrations/identify-visitors">
+    Track contact data
+  </Card>
+</CardGroup>

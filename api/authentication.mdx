@@ -1,0 +1,633 @@
+---
+title: "Authentication"
+description: "Learn how to authenticate with the Cossistant API using public and private API keys"
+---
+
+## Overview
+
+Cossistant uses API keys to authenticate requests. API keys come in two types:
+
+- **Public keys** (`pk_`) - Safe to use in browser/client-side code
+- **Private keys** (`sk_`) - Must be kept secret on your server
+
+Each key type also has test and live variants to separate development and production environments.
+
+## API Key Types
+
+### Public API Keys
+
+Public keys are designed for client-side use in browsers and mobile apps.
+
+**Format:** `pk_[test|live]_[64-character-hex-string]`
+
+**Examples:**
+```
+pk_test_abc123def456...  (67 characters - test)
+pk_live_xyz789uvw012...  (67 characters - live)
+```
+
+**Use Cases:**
+- Browser-based chat widgets
+- Mobile applications
+- Client-side JavaScript
+- Any environment where the key is visible to end users
+
+<Note>
+Public keys require the `Origin` header and can only be used from whitelisted domains configured in your website settings.
+</Note>
+
+### Private API Keys
+
+Private keys provide full access and must be kept secure on your server.
+
+**Format:** `sk_[test|live]_[64-character-hex-string]`
+
+**Examples:**
+```
+sk_test_abc123def456...  (67 characters - test)
+sk_live_xyz789uvw012...  (67 characters - live)
+```
+
+**Use Cases:**
+- Server-to-server communication
+- Backend integrations
+- Administrative operations
+- Automated workflows
+
+<Warning>
+**Never expose private keys in client-side code, version control, or public repositories.** Private keys grant full access to your organization's data.
+</Warning>
+
+## Test vs Live Keys
+
+### Test Keys
+
+Test keys include `_test_` in their prefix and have relaxed security requirements:
+
+- Can be used over HTTP/WS (not just HTTPS/WSS)
+- Can be used from localhost
+- Separate data from production
+- No security restrictions on origin
+
+**When to use:**
+- Local development
+- Testing integrations
+- CI/CD pipelines
+- Development environments
+
+### Live Keys
+
+Live keys include `_live_` in their prefix (or just the environment after the type):
+
+- **Must** use HTTPS/WSS in production
+- **Cannot** be used from localhost in production
+- Operate on production data
+- Full origin validation enforced
+
+**When to use:**
+- Production deployments
+- Real customer interactions
+- Live integrations
+
+<Note>
+In development mode (`NODE_ENV !== "production"`), live keys have relaxed restrictions to facilitate testing. Security requirements are strictly enforced in production.
+</Note>
+
+## How to Obtain API Keys
+
+### From the Dashboard
+
+1. Navigate to your website settings in the Cossistant dashboard
+2. Go to the **API Keys** section
+3. Click **Generate API Key**
+4. Choose the key type (Public or Private)
+5. Choose the environment (Test or Live)
+6. Copy and securely store the key
+
+<Warning>
+API keys are only shown once during creation. Store them securely immediately. If you lose a key, you'll need to generate a new one.
+</Warning>
+
+### Key Management Best Practices
+
+- Store keys in environment variables, never in code
+- Use secret management services (AWS Secrets Manager, HashiCorp Vault, etc.)
+- Rotate keys regularly
+- Delete unused keys
+- Use separate keys for different services
+- Never commit keys to version control
+
+## Authentication Methods
+
+### Method 1: Authorization Header (Private Keys)
+
+The recommended method for private API keys:
+
+```bash
+curl https://api.cossistant.com/v1/messages \
+  -H "Authorization: Bearer sk_test_abc123..." \
+  -H "Content-Type: application/json" \
+  -d '{"conversationId": "01JG000000000000000000000", "item": {"text": "Hello"}}'
+```
+
+**Request:**
+```http
+POST /v1/messages HTTP/1.1
+Host: api.cossistant.com
+Authorization: Bearer sk_test_abc123def456...
+Content-Type: application/json
+```
+
+### Method 2: X-Public-Key Header (Public Keys)
+
+Used for public keys in browser environments:
+
+```javascript
+fetch('https://api.cossistant.com/v1/messages', {
+  method: 'POST',
+  headers: {
+    'X-Public-Key': 'pk_test_abc123...',
+    'Content-Type': 'application/json',
+    // Origin header is automatically included by the browser
+  },
+  body: JSON.stringify({
+    conversationId: '01JG000000000000000000000',
+    item: { text: 'Hello' }
+  })
+});
+```
+
+**Request:**
+```http
+POST /v1/messages HTTP/1.1
+Host: api.cossistant.com
+X-Public-Key: pk_test_abc123def456...
+Origin: https://example.com
+Content-Type: application/json
+```
+
+### Method 3: WebSocket Authentication
+
+For WebSocket connections, authenticate during the connection handshake:
+
+**With Private Key:**
+```javascript
+const ws = new WebSocket('wss://api.cossistant.com/ws');
+
+// Send authentication message after connection opens
+ws.onopen = () => {
+  ws.send(JSON.stringify({
+    type: 'authenticate',
+    apiKey: 'sk_test_abc123...'
+  }));
+};
+```
+
+**With Public Key:**
+```javascript
+const ws = new WebSocket('wss://api.cossistant.com/ws', {
+  headers: {
+    'X-Public-Key': 'pk_test_abc123...',
+    'Origin': 'https://example.com'
+  }
+});
+```
+
+## Authentication Flow
+
+### Private Key Authentication
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant API
+    participant Cache
+    participant DB
+
+    Client->>API: Request with Authorization: Bearer sk_test_...
+    API->>API: Extract private key
+    API->>API: Validate key format (sk_*)
+    API->>Cache: Check Redis cache
+    alt Key in cache
+        Cache-->>API: Return cached API key data
+    else Key not in cache
+        API->>DB: Query database
+        DB-->>API: Return API key data
+        API->>Cache: Store in cache
+    end
+    API->>Client: Authenticated request proceeds
+```
+
+### Public Key Authentication
+
+```mermaid
+sequenceDiagram
+    participant Browser
+    participant API
+    participant Cache
+    participant DB
+
+    Browser->>API: Request with X-Public-Key: pk_test_...
+    Note over Browser,API: Origin header automatically included
+    API->>API: Extract public key and origin
+    API->>API: Validate key format (pk_*)
+    API->>API: Validate origin header exists
+    API->>Cache: Check Redis cache for key
+    alt Key in cache
+        Cache-->>API: Return cached API key data
+    else Key not in cache
+        API->>DB: Query database
+        DB-->>API: Return API key data
+        API->>Cache: Store in cache
+    end
+    API->>API: Parse origin URL (protocol, hostname)
+    API->>API: Validate HTTPS requirement (for live keys)
+    API->>API: Check hostname against whitelist
+    alt Domain whitelisted
+        API->>Browser: Authenticated request proceeds
+    else Domain not whitelisted
+        API->>Browser: 403 Forbidden
+    end
+```
+
+## Origin Validation (Public Keys)
+
+Public API keys are validated against whitelisted domains to prevent unauthorized use.
+
+### How It Works
+
+1. **Origin Header Required:** Browser automatically sends the `Origin` header
+2. **Parse Domain:** API extracts the hostname from the origin URL
+3. **Check Whitelist:** Hostname is compared against configured domains
+4. **Allow or Deny:** Request proceeds only if domain matches
+
+### Whitelisted Domain Formats
+
+The whitelist supports exact domains and wildcard patterns:
+
+**Exact domain:**
+```
+example.com
+```
+
+**Subdomain wildcard:**
+```
+*.example.com
+```
+Matches: `app.example.com`, `admin.example.com`, etc.
+Does NOT match: `example.com` (add separately if needed)
+
+**Full URLs (hostname extracted automatically):**
+```
+https://app.example.com
+```
+
+### Adding Domains to Whitelist
+
+1. Go to your website settings in the dashboard
+2. Navigate to **Whitelisted Domains**
+3. Add your domain(s)
+4. Save changes
+
+<Note>
+Changes to the domain whitelist are cached with Redis for performance. Updates may take up to 60 seconds to propagate across all API servers.
+</Note>
+
+## Security Best Practices
+
+### Private Key Security
+
+<Warning>
+**Critical:** Private keys grant full access to your data. Treat them like passwords.
+</Warning>
+
+**DO:**
+- ✅ Store in environment variables
+- ✅ Use secret management systems
+- ✅ Rotate keys regularly
+- ✅ Use separate keys per service
+- ✅ Audit key usage
+- ✅ Delete unused keys immediately
+
+**DON'T:**
+- ❌ Commit to version control
+- ❌ Hardcode in application code
+- ❌ Share via email or chat
+- ❌ Log in plain text
+- ❌ Expose in client-side code
+- ❌ Use in URLs or query parameters
+
+### Public Key Security
+
+While public keys are safe to expose, follow these guidelines:
+
+**DO:**
+- ✅ Whitelist only necessary domains
+- ✅ Use test keys for development
+- ✅ Monitor for unauthorized usage
+- ✅ Use HTTPS in production
+- ✅ Implement rate limiting on your side
+
+**DON'T:**
+- ❌ Share keys across different websites
+- ❌ Use live keys for testing
+- ❌ Whitelist `*` or overly broad patterns
+
+### HTTPS Requirements
+
+<Warning>
+**Production requirement:** Live API keys (both public and private) can only be used over HTTPS/WSS in production environments.
+</Warning>
+
+**Enforced for live keys in production:**
+- HTTP requests will be rejected with `403 Forbidden`
+- Must use `https://` protocol
+- Must use `wss://` for WebSocket connections
+- Localhost/private IPs are blocked for live keys
+
+**Relaxed for test keys:**
+- Can use HTTP/WS protocols
+- Can use from localhost
+- Can use from private IP addresses
+
+## Token Format and Validation
+
+### Format Specification
+
+API keys follow a strict format for security and validation:
+
+```
+[prefix]_[environment]_[random]
+
+prefix: pk | sk
+environment: test | live (or omitted for live)
+random: 64-character hexadecimal string
+```
+
+### Client-Side Validation
+
+Validate key format before sending requests:
+
+```javascript
+function isValidPublicKey(key) {
+  return key.startsWith('pk_') && 
+         (key.length === 67 || key.length === 72);
+}
+
+function isValidPrivateKey(key) {
+  return key.startsWith('sk_') && 
+         (key.length === 67 || key.length === 72);
+}
+
+// Check if key is for testing
+function isTestKey(key) {
+  return key.includes('_test_');
+}
+```
+
+### Server-Side Validation
+
+The API validates keys with the following checks:
+
+1. **Format validation:** Prefix and length checks
+2. **Database lookup:** Key exists and is active
+3. **Organization check:** Associated organization is active
+4. **Website check:** Associated website exists (for public keys)
+5. **Origin validation:** Domain whitelist check (for public keys)
+6. **HTTPS enforcement:** Protocol check for live keys in production
+
+### Validation Errors
+
+Common validation errors and their meanings:
+
+```json
+{
+  "error": "API key is required"
+}
+```
+No API key provided in request.
+
+```json
+{
+  "error": "Invalid API key"
+}
+```
+Key not found in database or incorrect format.
+
+```json
+{
+  "error": "Invalid private API key format"
+}
+```
+Private key doesn't match expected format.
+
+```json
+{
+  "error": "Invalid public API key format"
+}
+```
+Public key doesn't match expected format.
+
+```json
+{
+  "error": "Origin header is required for public key authentication"
+}
+```
+Public key used without Origin header (not from a browser).
+
+```json
+{
+  "error": "Domain example.com is not whitelisted for this API key"
+}
+```
+Request origin is not in the whitelist.
+
+```json
+{
+  "error": "Production API keys can only be used over HTTPS/WSS connections"
+}
+```
+Live key used with HTTP in production.
+
+```json
+{
+  "error": "Production API keys cannot be used from localhost"
+}
+```
+Live key used from localhost in production.
+
+## Caching
+
+API key lookups are cached in Redis for performance:
+
+- **Cache TTL:** Configurable per deployment
+- **Cache Key:** `api-key:{key}`
+- **Cache Invalidation:** Automatic on key update/deletion
+- **Performance:** Sub-millisecond response times for cached keys
+
+This caching strategy ensures that authentication adds minimal latency to API requests.
+
+## Example Implementations
+
+### Node.js with Private Key
+
+```javascript
+import fetch from 'node-fetch';
+
+const COSSISTANT_API_KEY = process.env.COSSISTANT_API_KEY;
+
+async function sendMessage(conversationId, text) {
+  const response = await fetch('https://api.cossistant.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${COSSISTANT_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      conversationId,
+      item: { text }
+    })
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error);
+  }
+
+  return response.json();
+}
+```
+
+### Browser with Public Key
+
+```javascript
+const COSSISTANT_PUBLIC_KEY = 'pk_test_abc123...';
+
+async function sendMessage(conversationId, text) {
+  const response = await fetch('https://api.cossistant.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'X-Public-Key': COSSISTANT_PUBLIC_KEY,
+      'Content-Type': 'application/json',
+      // Origin header is automatically included by the browser
+    },
+    body: JSON.stringify({
+      conversationId,
+      item: { text }
+    })
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error);
+  }
+
+  return response.json();
+}
+```
+
+### Python with Private Key
+
+```python
+import os
+import requests
+
+COSSISTANT_API_KEY = os.environ['COSSISTANT_API_KEY']
+
+def send_message(conversation_id, text):
+    response = requests.post(
+        'https://api.cossistant.com/v1/messages',
+        headers={
+            'Authorization': f'Bearer {COSSISTANT_API_KEY}',
+            'Content-Type': 'application/json',
+        },
+        json={
+            'conversationId': conversation_id,
+            'item': {'text': text}
+        }
+    )
+    
+    response.raise_for_status()
+    return response.json()
+```
+
+### cURL Examples
+
+**Private key authentication:**
+```bash
+curl -X POST https://api.cossistant.com/v1/messages \
+  -H "Authorization: Bearer sk_test_abc123..." \
+  -H "Content-Type: application/json" \
+  -d '{"conversationId":"01JG000000000000000000000","item":{"text":"Hello"}}'
+```
+
+**Public key authentication:**
+```bash
+curl -X POST https://api.cossistant.com/v1/messages \
+  -H "X-Public-Key: pk_test_abc123..." \
+  -H "Origin: https://example.com" \
+  -H "Content-Type: application/json" \
+  -d '{"conversationId":"01JG000000000000000000000","item":{"text":"Hello"}}'
+```
+
+## Troubleshooting
+
+### "Invalid API key" Error
+
+**Possible causes:**
+1. Key doesn't exist in the database
+2. Typo in the key
+3. Key has been deleted
+4. Wrong environment (test key on live endpoint)
+
+**Solution:** Verify the key in your dashboard and regenerate if necessary.
+
+### "Domain not whitelisted" Error
+
+**Possible causes:**
+1. Domain not added to whitelist
+2. Typo in whitelisted domain
+3. Using subdomain when only root domain is whitelisted
+4. Cache not updated yet after adding domain
+
+**Solution:** 
+- Check domain whitelist in dashboard
+- Wait 60 seconds for cache to update
+- Ensure exact domain match or use wildcard pattern
+
+### "Origin header required" Error
+
+**Possible causes:**
+1. Using public key outside browser environment
+2. Origin header stripped by proxy/CDN
+3. Making request from Node.js/curl without Origin header
+
+**Solution:** Use private keys for server-side requests or ensure Origin header is present.
+
+### HTTPS Required Error
+
+**Possible causes:**
+1. Using live key over HTTP in production
+2. Using live key from localhost in production
+
+**Solution:**
+- Use test keys for development
+- Deploy to HTTPS endpoint for production
+- Check `NODE_ENV` environment variable
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="REST Endpoints" icon="plug" href="/api/conversations">
+    Start making authenticated API requests
+  </Card>
+  <Card title="WebSocket API" icon="wifi" href="/api/websocket-connection">
+    Connect to real-time events
+  </Card>
+  <Card title="Rate Limits" icon="gauge" href="/api/introduction#rate-limiting">
+    Understand rate limiting policies
+  </Card>
+  <Card title="SDKs" icon="code" href="/api/react-api">
+    Use official SDKs with built-in auth
+  </Card>
+</CardGroup>

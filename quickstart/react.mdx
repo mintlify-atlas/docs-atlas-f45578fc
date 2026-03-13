@@ -1,0 +1,343 @@
+---
+title: React Quickstart
+description: Get Cossistant's AI-powered support widget running in your React app in under 5 minutes
+---
+
+<Steps>
+  <Step title="Install the package">
+    Install `@cossistant/react` using your preferred package manager:
+
+    <CodeGroup>
+      ```bash npm
+      npm install @cossistant/react
+      ```
+
+      ```bash yarn
+      yarn add @cossistant/react
+      ```
+
+      ```bash pnpm
+      pnpm add @cossistant/react
+      ```
+
+      ```bash bun
+      bun add @cossistant/react
+      ```
+    </CodeGroup>
+
+    <Note>
+      `@cossistant/react` works with any React framework including Vite, Create React App, Remix, and more. Requires React 18 or higher.
+    </Note>
+  </Step>
+
+  <Step title="Add your API key">
+    Set your Cossistant public API key as an environment variable. The variable name depends on your framework:
+
+    <Tabs>
+      <Tab title="Vite">
+        Create a `.env` file and prefix the variable with `VITE_`:
+
+        ```bash .env
+        VITE_COSSISTANT_API_KEY=pk_test_xxxx
+        ```
+      </Tab>
+
+      <Tab title="Next.js">
+        Create a `.env.local` file and prefix with `NEXT_PUBLIC_`:
+
+        ```bash .env.local
+        NEXT_PUBLIC_COSSISTANT_API_KEY=pk_test_xxxx
+        ```
+
+        <Info>
+          For Next.js, we recommend using `@cossistant/next` instead, which is optimized for Next.js App Router.
+        </Info>
+      </Tab>
+
+      <Tab title="Other Frameworks">
+        For Create React App, Remix, or other frameworks, use:
+
+        ```bash .env
+        COSSISTANT_API_KEY=pk_test_xxxx
+        ```
+
+        Or pass the key directly via the `publicKey` prop:
+
+        ```tsx
+        <SupportProvider publicKey="pk_test_xxxx">
+        ```
+      </Tab>
+    </Tabs>
+
+    <Warning>
+      Get your API key from the [Cossistant Dashboard](https://app.cossistant.com/settings/api-keys). The SDK automatically detects your framework and reads the correct environment variable.
+    </Warning>
+  </Step>
+
+  <Step title="Wrap your app with SupportProvider">
+    Add the `SupportProvider` to your root component to make support features available throughout your app:
+
+    ```tsx src/main.tsx
+    import React from "react";
+import ReactDOM from "react-dom/client";
+import { SupportProvider } from "@cossistant/react";
+import App from "./App";
+import "./index.css";
+
+ReactDOM.createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <SupportProvider>
+      <App />
+    </SupportProvider>
+  </React.StrictMode>
+);
+    ```
+
+    <Info>
+      The `SupportProvider` automatically detects environment variables (`VITE_COSSISTANT_API_KEY`, `NEXT_PUBLIC_COSSISTANT_API_KEY`, or `COSSISTANT_API_KEY`). You can also pass the key explicitly:
+      ```tsx
+      <SupportProvider publicKey={import.meta.env.VITE_COSSISTANT_API_KEY}>
+      ```
+    </Info>
+  </Step>
+
+  <Step title="Import styles">
+    Choose one of two styling approaches based on your setup:
+
+    <Tabs>
+      <Tab title="Tailwind v4">
+        If you're using Tailwind CSS v4, import the source CSS for full theme customization:
+
+        ```css src/index.css
+        @import "tailwindcss";
+
+        @import "@cossistant/react/support.css";
+        ```
+
+        This gives you access to Tailwind's theme system and lets you customize the widget using CSS variables.
+      </Tab>
+
+      <Tab title="Plain CSS">
+        For projects without Tailwind or using Tailwind v3, import the pre-compiled styles:
+
+        ```tsx src/main.tsx
+        import React from "react";
+import ReactDOM from "react-dom/client";
+import { SupportProvider } from "@cossistant/react";
+import "@cossistant/react/styles.css";
+import App from "./App";
+import "./index.css";
+
+ReactDOM.createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <SupportProvider>
+      <App />
+    </SupportProvider>
+  </React.StrictMode>
+);
+        ```
+
+        <Note>
+          The `styles.css` file contains all compiled styles with no Tailwind dependency.
+        </Note>
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Add the Support widget">
+    Drop the `Support` component anywhere inside the provider to render the floating widget:
+
+    ```tsx src/App.tsx
+    import { Support } from "@cossistant/react";
+
+export default function App() {
+  return (
+    <main>
+      <h1>Welcome to my app</h1>
+      <p>You are ready to chat with support!</p>
+      <Support />
+    </main>
+  );
+}
+    ```
+
+    The widget will appear as a floating button in the bottom-right corner. Click it to open the chat interface.
+  </Step>
+
+  <Step title="Identify logged-in users (optional)">
+    If your app has authenticated users, identify them so your support team knows who they're talking to:
+
+    ```tsx src/App.tsx
+    import { IdentifySupportVisitor, Support } from "@cossistant/react";
+
+export default function App() {
+  // Get the current user from your auth system
+  const user = {
+    id: "user_123",
+    email: "jane@acme.com",
+    name: "Jane Doe",
+  };
+
+  return (
+    <>
+      <IdentifySupportVisitor
+        externalId={user.id}
+        email={user.email}
+        name={user.name}
+      />
+      <main>
+        <h1>Welcome back, {user.name}!</h1>
+        <Support />
+      </main>
+    </>
+  );
+}
+    ```
+
+    <Info>
+      `IdentifySupportVisitor` accepts:
+      - `externalId` - Your internal user ID
+      - `email` - User's email address
+      - `name` - User's display name (optional)
+      - `image` - Avatar URL (optional)
+      - `metadata` - Custom key-value pairs (optional)
+    </Info>
+  </Step>
+
+  <Step title="Customize default messages (optional)">
+    Display custom welcome messages and quick reply options using `SupportConfig`:
+
+    ```tsx src/App.tsx
+    import { Support, SupportConfig } from "@cossistant/react";
+import { type DefaultMessage, SenderType } from "@cossistant/types";
+
+const user: { name: string | null } = {
+  name: "Jane Doe",
+};
+
+const defaultMessages: DefaultMessage[] = [
+  {
+    content: `Hi ${user.name ?? "there"}, anything I can help with?`,
+    senderType: SenderType.TEAM_MEMBER,
+  },
+];
+
+const quickOptions: string[] = [
+  "How do I reset my password?",
+  "Where can I find my invoices?",
+  "How do I upgrade my plan?",
+];
+
+export default function App() {
+  return (
+    <>
+      <SupportConfig
+        defaultMessages={defaultMessages}
+        quickOptions={quickOptions}
+      />
+      <Support />
+    </>
+  );
+}
+    ```
+
+    <Note>
+      `defaultMessages` appear before a conversation starts. Once the user sends their first message, these are replaced with the actual conversation timeline.
+    </Note>
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Support Component" icon="puzzle-piece" href="/sdk/support-component">
+    Learn about all the props and customization options
+  </Card>
+  <Card title="Visitor Identification" icon="user" href="/integrations/identify-visitors">
+    Deep dive into identifying users and attaching metadata
+  </Card>
+  <Card title="Theming" icon="palette" href="/customization/theming">
+    Customize colors, fonts, and styles to match your brand
+  </Card>
+  <Card title="Hooks" icon="code" href="/sdk/hooks">
+    Use React hooks to build custom support experiences
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Widget not appearing">
+    - Verify your API key is correct and starts with `pk_`
+    - Check that the environment variable matches your framework's prefix (`VITE_`, `NEXT_PUBLIC_`, or none)
+    - Ensure `SupportProvider` wraps your entire app
+    - Look for errors in the browser console
+    - Restart your dev server after adding environment variables
+  </Accordion>
+
+  <Accordion title="Styles not loading">
+    - Make sure you've imported either `@cossistant/react/support.css` or `@cossistant/react/styles.css`
+    - For Tailwind v4, verify the `@import` is at the top of your CSS file
+    - For plain CSS, verify the import is before your `App` import
+    - Check that your build process includes CSS files in the bundle
+  </Accordion>
+
+  <Accordion title="TypeScript errors">
+    - Install `@types/react` and `@types/react-dom` if not already present
+    - Ensure your `tsconfig.json` has `"moduleResolution": "bundler"` or `"node16"`
+    - Update to React 18 or higher
+    - Add `"jsx": "react-jsx"` to your `tsconfig.json` compiler options
+  </Accordion>
+
+  <Accordion title="Build errors in production">
+    - Ensure environment variables are available during build time
+    - For Vite, verify variables are prefixed with `VITE_`
+    - Check that CSS files are included in the production bundle
+    - For Netlify/Vercel, add your API key to the deployment environment variables
+  </Accordion>
+
+  <Accordion title="Framework-specific issues">
+    **Vite**: Make sure `import.meta.env.VITE_COSSISTANT_API_KEY` is defined
+    
+    **Create React App**: Use `process.env.REACT_APP_COSSISTANT_API_KEY` if CRA is configured that way
+    
+    **Remix**: Import styles in your `root.tsx` and ensure client-side rendering for the widget
+    
+    **Next.js**: Use `@cossistant/next` instead for better App Router support
+  </Accordion>
+</AccordionGroup>
+
+## Framework Compatibility
+
+<CardGroup cols={3}>
+  <Card title="Vite" icon="bolt">
+    ✅ Fully supported
+    
+    Use `VITE_COSSISTANT_API_KEY`
+  </Card>
+  <Card title="Create React App" icon="react">
+    ✅ Fully supported
+    
+    Use `COSSISTANT_API_KEY`
+  </Card>
+  <Card title="Next.js" icon="N">
+    ⚠️ Use `@cossistant/next`
+    
+    Better App Router support
+  </Card>
+  <Card title="Remix" icon="music">
+    ✅ Fully supported
+    
+    Client-side only component
+  </Card>
+  <Card title="Astro" icon="rocket">
+    ✅ Supported with React integration
+    
+    Use `client:load` directive
+  </Card>
+  <Card title="Gatsby" icon="gatsby">
+    ✅ Fully supported
+    
+    Use `GATSBY_COSSISTANT_API_KEY`
+  </Card>
+</CardGroup>

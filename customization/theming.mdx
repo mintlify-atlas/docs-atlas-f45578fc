@@ -1,0 +1,328 @@
+---
+title: Theming
+description: Customize the appearance of your support widget with CSS variables and design tokens.
+---
+
+The Cossistant support widget uses a comprehensive theming system built on CSS variables and OKLCH color space, providing full control over visual appearance while maintaining perfect isolation from your app's styles.
+
+## CSS Variable System
+
+All widget styles use the `co-` prefix to prevent conflicts with your existing CSS. The theming system works with a two-tier variable structure:
+
+1. **Theme variables** (`--co-theme-*`) - Your custom overrides
+2. **Internal variables** (`--co-*`) - Computed values with fallbacks
+
+```css
+/* Widget checks theme variable first, then uses default */
+--co-primary: var(--co-theme-primary, oklch(20.5% 0 0));
+```
+
+## Quick Start
+
+Override widget colors by setting `--co-theme-*` variables on the `.cossistant` class:
+
+```css
+.cossistant {
+  --co-theme-primary: #3b82f6;
+  --co-theme-background: #ffffff;
+  --co-theme-foreground: #0f172a;
+  --co-theme-radius: 12px;
+}
+```
+
+## Core Design Tokens
+
+### Color Variables
+
+The widget provides extensive color customization through theme variables:
+
+<Tabs>
+  <Tab title="Base Colors">
+    | Variable | Default (Light) | Default (Dark) | Usage |
+    |----------|----------------|----------------|-------|
+    | `--co-theme-background` | `oklch(99% 0 0)` | `oklch(15.5% 0 0)` | Main background |
+    | `--co-theme-foreground` | `oklch(20.5% 0 0)` | `oklch(95% 0 0)` | Text color |
+    | `--co-theme-primary` | `oklch(14.5% 0 0)` | `oklch(98.5% 0 0)` | Buttons, links |
+    | `--co-theme-primary-foreground` | `oklch(98.5% 0 0)` | `oklch(14.5% 0 0)` | Text on primary |
+    | `--co-theme-secondary` | `oklch(97% 0 0)` | `oklch(26.9% 0 0)` | Secondary elements |
+    | `--co-theme-secondary-foreground` | `oklch(14.5% 0 0)` | `oklch(95% 0 0)` | Text on secondary |
+  </Tab>
+  <Tab title="UI Elements">
+    | Variable | Default (Light) | Default (Dark) | Usage |
+    |----------|----------------|----------------|-------|
+    | `--co-theme-border` | `oklch(92.2% 0 0)` | `oklch(26.9% 0 0)` | Borders |
+    | `--co-theme-input` | `oklch(92.2% 0 0)` | `oklch(26.9% 0 0)` | Input backgrounds |
+    | `--co-theme-muted` | Color-mixed | Color-mixed | Subtle backgrounds |
+    | `--co-theme-muted-foreground` | Color-mixed | Color-mixed | Muted text |
+    | `--co-theme-ring` | Inherits primary | Inherits primary | Focus rings |
+  </Tab>
+  <Tab title="Status Colors">
+    | Variable | Default (Light) | Default (Dark) | Usage |
+    |----------|----------------|----------------|-------|
+    | `--co-theme-destructive` | `oklch(57.7% 0.245 27.325)` | `oklch(39.6% 0.141 25.723)` | Errors, delete actions |
+    | `--co-theme-destructive-foreground` | `oklch(57.7% 0.245 27.325)` | `oklch(63.7% 0.237 25.331)` | Text on destructive |
+    | `--co-theme-success` | `oklch(71.7% 0.18 142)` | `oklch(60% 0.15 142)` | Success states |
+    | `--co-theme-success-foreground` | `oklch(26.5% 0.052 142.7)` | `oklch(85% 0.12 142)` | Text on success |
+    | `--co-theme-warning` | `oklch(86.4% 0.144 99)` | `oklch(90.3% 0.111 99)` | Warnings |
+    | `--co-theme-warning-foreground` | `oklch(41.4% 0.071 99)` | `oklch(85% 0.1 99)` | Text on warning |
+    | `--co-theme-neutral` | `oklch(60.8% 0 0)` | `oklch(50% 0 0)` | Neutral states |
+    | `--co-theme-neutral-foreground` | `oklch(25.6% 0 0)` | `oklch(85% 0 0)` | Text on neutral |
+  </Tab>
+  <Tab title="Accent Colors">
+    | Variable | Default (Light) | Default (Dark) | Usage |
+    |----------|----------------|----------------|-------|
+    | `--co-theme-pink` | `oklch(76.3% 0.152 354)` | `oklch(84.2% 0.109 354)` | Avatar fallbacks |
+    | `--co-theme-yellow` | `oklch(86.4% 0.144 99)` | `oklch(90.3% 0.111 99)` | Avatar fallbacks |
+    | `--co-theme-blue` | `oklch(72.5% 0.132 241)` | `oklch(79.8% 0.089 241)` | Avatar fallbacks |
+    | `--co-theme-orange` | `oklch(74.5% 0.166 50)` | `oklch(68.2% 0.194 50)` | Avatar fallbacks |
+  </Tab>
+</Tabs>
+
+### Typography
+
+Customize fonts used throughout the widget:
+
+```css
+.cossistant {
+  --co-theme-font-sans: 'Inter', system-ui, sans-serif;
+  --co-theme-font-mono: 'JetBrains Mono', monospace;
+}
+```
+
+### Border Radius
+
+Control the roundness of UI elements:
+
+```css
+.cossistant {
+  --co-theme-radius: 0.75rem; /* More rounded */
+}
+```
+
+## Dark Mode
+
+<Tabs>
+  <Tab title="Automatic Detection">
+    The widget automatically detects dark mode by checking for:
+
+    1. `.dark` class on any parent element
+    2. `data-color-scheme="dark"` attribute on any parent element
+
+    This works seamlessly with popular theme libraries:
+
+    ```tsx
+    // Works with next-themes
+    <body className="dark">
+      <Support />
+    </body>
+
+    // Works with data attributes
+    <div data-color-scheme="dark">
+      <Support />
+    </div>
+    ```
+  </Tab>
+  <Tab title="Force Theme">
+    Override automatic detection with the `theme` prop:
+
+    ```tsx
+    // Always dark
+    <Support theme="dark" />
+
+    // Always light
+    <Support theme="light" />
+    ```
+  </Tab>
+  <Tab title="Custom Dark Colors">
+    Override dark mode colors specifically:
+
+    ```css
+    .dark .cossistant,
+    .cossistant[data-color-scheme="dark"] {
+      --co-theme-background: #0a0a0a;
+      --co-theme-foreground: #fafafa;
+      --co-theme-primary: #60a5fa;
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Tailwind Integration
+
+The widget is built with Tailwind CSS v4 and automatically integrates with your Tailwind configuration.
+
+### Using Your Tailwind Theme
+
+Map your Tailwind CSS variables to widget variables:
+
+```css
+@layer base {
+  :root {
+    --co-theme-background: var(--background);
+    --co-theme-foreground: var(--foreground);
+    --co-theme-primary: var(--primary);
+    --co-theme-primary-foreground: var(--primary-foreground);
+    --co-theme-border: var(--border);
+    --co-theme-radius: var(--radius);
+  }
+}
+```
+
+### shadcn/ui Compatibility
+
+Perfect integration with shadcn/ui themes:
+
+```css
+:root {
+  /* Map shadcn variables to Cossistant */
+  --co-theme-background: var(--background);
+  --co-theme-foreground: var(--foreground);
+  --co-theme-primary: var(--primary);
+  --co-theme-primary-foreground: var(--primary-foreground);
+  --co-theme-secondary: var(--secondary);
+  --co-theme-secondary-foreground: var(--secondary-foreground);
+  --co-theme-muted: var(--muted);
+  --co-theme-muted-foreground: var(--muted-foreground);
+  --co-theme-border: var(--border);
+  --co-theme-input: var(--input);
+  --co-theme-ring: var(--ring);
+  --co-theme-radius: var(--radius);
+}
+```
+
+## Advanced Customization
+
+### Background Shades
+
+For fine-grained control over background depth and hierarchy:
+
+```css
+.cossistant {
+  --co-theme-background-50: #fafafa;
+  --co-theme-background-100: #f5f5f5;
+  --co-theme-background-200: #eeeeee;
+  --co-theme-background-300: #e0e0e0;
+  --co-theme-background-400: #d0d0d0;
+  --co-theme-background-500: #c0c0c0;
+  --co-theme-background-600: #b0b0b0;
+}
+```
+
+<Accordion title="How background shades work">
+  By default, these shades are automatically generated using `color-mix()` from your base background and foreground colors. Override them when you need specific shade values that don't match the generated gradient.
+</Accordion>
+
+### Custom Scrollbar Styling
+
+The widget includes custom scrollbar styles that use the primary color:
+
+```css
+/* Customize scrollbar colors */
+.cossistant .co-scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: oklch(from var(--co-primary) l c h / 0.5);
+}
+```
+
+## Brand Examples
+
+<Tabs>
+  <Tab title="Tech Startup">
+    ```css
+    .cossistant {
+      --co-theme-primary: #6366f1;
+      --co-theme-primary-foreground: #ffffff;
+      --co-theme-background: #fafafa;
+      --co-theme-foreground: #0f172a;
+      --co-theme-border: #e2e8f0;
+      --co-theme-radius: 0.5rem;
+      --co-theme-font-sans: 'Inter', sans-serif;
+    }
+    ```
+  </Tab>
+  <Tab title="E-commerce">
+    ```css
+    .cossistant {
+      --co-theme-primary: #dc2626;
+      --co-theme-primary-foreground: #ffffff;
+      --co-theme-background: #ffffff;
+      --co-theme-foreground: #1f2937;
+      --co-theme-border: #d1d5db;
+      --co-theme-radius: 0.375rem;
+    }
+    ```
+  </Tab>
+  <Tab title="Finance">
+    ```css
+    .cossistant {
+      --co-theme-primary: #0ea5e9;
+      --co-theme-primary-foreground: #ffffff;
+      --co-theme-background: #f8fafc;
+      --co-theme-foreground: #1e293b;
+      --co-theme-border: #cbd5e1;
+      --co-theme-radius: 0.25rem;
+      --co-theme-font-sans: 'IBM Plex Sans', sans-serif;
+    }
+    ```
+  </Tab>
+  <Tab title="Creative Agency">
+    ```css
+    .cossistant {
+      --co-theme-primary: #f59e0b;
+      --co-theme-primary-foreground: #000000;
+      --co-theme-background: #fef3c7;
+      --co-theme-foreground: #78350f;
+      --co-theme-border: #fde68a;
+      --co-theme-radius: 1rem;
+      --co-theme-font-sans: 'Space Grotesk', sans-serif;
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## OKLCH Color Space
+
+The widget uses OKLCH for better color perception and consistency across light and dark modes.
+
+<Accordion title="Why OKLCH?">
+  OKLCH provides perceptually uniform colors that look better across different backgrounds. The format is:
+  
+  ```
+  oklch(lightness% chroma hue)
+  ```
+  
+  - **Lightness**: 0-100%, controls brightness
+  - **Chroma**: 0-0.4, controls saturation
+  - **Hue**: 0-360, color angle
+
+  Convert hex colors to OKLCH using tools like [oklch.com](https://oklch.com) or use hex values directly - modern browsers handle the conversion.
+</Accordion>
+
+## Troubleshooting
+
+<Accordion title="Colors not applying">
+  Ensure you're targeting the `.cossistant` class:
+  
+  ```css
+  /* ✅ Correct */
+  .cossistant {
+    --co-theme-primary: blue;
+  }
+  
+  /* ❌ Wrong */
+  :root {
+    --co-primary: blue;
+  }
+  ```
+</Accordion>
+
+<Accordion title="Dark mode not switching">
+  Check that your app is adding the `.dark` class or `data-color-scheme` attribute to a parent element. Or use the `theme` prop to force a specific theme:
+  
+  ```tsx
+  <Support theme="dark" />
+  ```
+</Accordion>
+
+<Accordion title="Styles conflicting with my app">
+  This shouldn't happen as all widget styles are prefixed with `co-`. If you see conflicts, ensure you haven't created custom classes with the `co-` prefix.
+</Accordion>

@@ -1,0 +1,319 @@
+---
+title: "API Introduction"
+description: "Overview of the Cossistant API architecture, endpoints, and core concepts"
+---
+
+## Welcome to the Cossistant API
+
+The Cossistant API provides a powerful and flexible platform for building customer support experiences. Our API supports both REST endpoints for traditional request-response patterns and WebSocket connections for real-time bidirectional communication.
+
+## API Architecture
+
+Cossistant provides two complementary API interfaces:
+
+### REST API
+
+The REST API uses standard HTTP methods and returns JSON responses. It's ideal for:
+- Creating and managing conversations
+- Sending messages
+- Managing contacts and visitors
+- Uploading files and media
+- Managing knowledge base content
+- Submitting and retrieving feedback
+
+**Base URL:** `https://api.cossistant.com/v1`
+
+### WebSocket API
+
+The WebSocket API enables real-time, bidirectional communication for:
+- Receiving messages and events instantly
+- Live typing indicators
+- Presence updates (online/offline status)
+- Real-time conversation updates
+- Connection state management
+
+**WebSocket URL:** `wss://api.cossistant.com/ws`
+
+## Endpoint Structure
+
+All REST API endpoints follow this structure:
+
+```
+https://api.cossistant.com/v1/{resource}/{action}
+```
+
+### Available Resources
+
+| Resource | Description | Base Endpoint |
+|----------|-------------|---------------|
+| **organizations** | Manage organization settings | `/v1/organizations` |
+| **websites** | Configure website integrations | `/v1/websites` |
+| **conversations** | Handle conversation lifecycle | `/v1/conversations` |
+| **messages** | Send and retrieve messages | `/v1/messages` |
+| **visitors** | Track and identify visitors | `/v1/visitors` |
+| **contacts** | Manage contact information | `/v1/contacts` |
+| **uploads** | Handle file uploads | `/v1/uploads` |
+| **knowledge** | Manage knowledge base content | `/v1/knowledge` |
+| **feedback** | Submit and retrieve feedback | `/v1/feedback` |
+
+## Rate Limiting
+
+The API implements rate limiting to ensure fair usage and system stability. Rate limits are applied per IP address.
+
+### Rate Limit Tiers
+
+| Endpoint Type | Development | Production | Window |
+|---------------|-------------|------------|--------|
+| **REST API** (`/v1/*`) | 300 req/min | 100 req/min | 1 minute |
+| **TRPC** (`/trpc/*`) | 200 req/min | 100 req/min | 1 minute |
+| **Auth** (`/api/auth/*`) | 30 req/min | 30 req/min | 1 minute |
+| **WebSocket** (`/ws`) | 30 conn/min | 10 conn/min | 1 minute |
+
+### Rate Limit Headers
+
+Every API response includes rate limit information in the headers:
+
+```http
+RateLimit-Limit: 100
+RateLimit-Remaining: 95
+RateLimit-Reset: 1234567890
+```
+
+When you exceed the rate limit, you'll receive a `429 Too Many Requests` response:
+
+```json
+{
+  "error": "Too many requests, please try again later."
+}
+```
+
+<Note>
+Rate limits are more permissive in development (`NODE_ENV !== "production"`) to facilitate testing and debugging.
+</Note>
+
+## Error Handling
+
+The API uses standard HTTP status codes and returns consistent error responses.
+
+### HTTP Status Codes
+
+| Status Code | Meaning | Description |
+|-------------|---------|-------------|
+| **200** | OK | Request succeeded |
+| **400** | Bad Request | Invalid request parameters or body |
+| **401** | Unauthorized | Missing or invalid API key |
+| **403** | Forbidden | Valid API key but insufficient permissions |
+| **404** | Not Found | Resource does not exist |
+| **429** | Too Many Requests | Rate limit exceeded |
+| **500** | Internal Server Error | Server error (rare) |
+| **503** | Service Unavailable | Service temporarily unavailable |
+
+### Error Response Format
+
+All errors return a JSON object with an `error` field:
+
+```json
+{
+  "error": "Description of what went wrong"
+}
+```
+
+### Common Error Messages
+
+**Authentication Errors:**
+```json
+{
+  "error": "API key is required"
+}
+```
+
+**Authorization Errors:**
+```json
+{
+  "error": "Domain example.com is not whitelisted for this API key"
+}
+```
+
+**Validation Errors:**
+```json
+{
+  "error": "Invalid request"
+}
+```
+
+**Resource Errors:**
+```json
+{
+  "error": "Conversation for website not found"
+}
+```
+
+## Response Formats
+
+All API responses use JSON format with consistent structure.
+
+### Successful Response
+
+```json
+{
+  "item": {
+    "id": "01JG000000000000000000000",
+    "type": "message",
+    "text": "Hello, how can I help you?",
+    "createdAt": "2026-03-13T12:00:00.000Z"
+  }
+}
+```
+
+### List Response
+
+```json
+{
+  "items": [
+    { "id": "01JG000000000000000000000", "..." },
+    { "id": "01JG000000000000000000001", "..." }
+  ],
+  "total": 2,
+  "hasMore": false
+}
+```
+
+### Timestamps
+
+All timestamps use ISO 8601 format in UTC:
+
+```
+2026-03-13T12:00:00.000Z
+```
+
+### IDs
+
+Resource IDs use ULID format (Universally Unique Lexicographically Sortable Identifier):
+
+```
+01JG000000000000000000000
+```
+
+ULIDs are:
+- 26 characters long
+- Case-insensitive
+- Lexicographically sortable (older IDs sort before newer ones)
+- Timestamp-based (first 48 bits encode millisecond precision timestamp)
+
+## SDK vs Direct API Usage
+
+### Using the SDK (Recommended)
+
+The Cossistant JavaScript SDK provides a better developer experience:
+
+```javascript
+import { Cossistant } from '@cossistant/sdk';
+
+const cossistant = new Cossistant({
+  publicKey: 'pk_test_...',
+  // SDK handles authentication, retries, and WebSocket connections
+});
+
+// Send a message (SDK handles all the details)
+await cossistant.messages.send({
+  conversationId: '01JG000000000000000000000',
+  text: 'Hello!'
+});
+```
+
+**SDK Benefits:**
+- Automatic authentication handling
+- Built-in retry logic
+- WebSocket connection management
+- Type safety with TypeScript
+- Simplified error handling
+
+### Direct API Usage
+
+For custom integrations or non-JavaScript environments:
+
+```bash
+curl https://api.cossistant.com/v1/messages \
+  -H "Authorization: Bearer sk_test_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "conversationId": "01JG000000000000000000000",
+    "item": {
+      "text": "Hello!"
+    }
+  }'
+```
+
+## CORS and Origins
+
+The API implements CORS (Cross-Origin Resource Sharing) policies:
+
+### Public API (`/v1/*`)
+
+- **Origin:** `*` (all origins allowed)
+- **Credentials:** Not allowed
+- Use with public API keys from browser environments
+
+### Auth & TRPC APIs
+
+- **Origin:** Trusted domains only
+- **Credentials:** Allowed
+- Restricted to: `cossistant.com`, `www.cossistant.com`, `localhost:3000`
+
+<Note>
+When using public API keys, your domain must be whitelisted in your website settings. Private API keys should only be used server-side and are not subject to origin restrictions.
+</Note>
+
+## Security Headers
+
+All API responses include security headers:
+
+```http
+X-Robots-Tag: noindex, nofollow
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+X-XSS-Protection: 1; mode=block
+Strict-Transport-Security: max-age=31536000; includeSubDomains
+```
+
+## Health Check
+
+Check API availability with the health endpoint:
+
+```bash
+curl https://api.cossistant.com/health
+```
+
+**Response:**
+```json
+{
+  "status": "healthy"
+}
+```
+
+## OpenAPI Documentation
+
+Interactive API documentation is available at:
+
+```
+https://api.cossistant.com/docs
+```
+
+This provides a Swagger UI interface for exploring and testing all API endpoints.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="key" href="/api/authentication">
+    Learn how to authenticate your API requests
+  </Card>
+  <Card title="REST Endpoints" icon="plug" href="/api/conversations">
+    Explore available REST API endpoints
+  </Card>
+  <Card title="WebSocket API" icon="wifi" href="/api/websocket-connection">
+    Connect to real-time event streams
+  </Card>
+  <Card title="SDKs" icon="code" href="/api/react-api">
+    Use our official SDKs for easier integration
+  </Card>
+</CardGroup>

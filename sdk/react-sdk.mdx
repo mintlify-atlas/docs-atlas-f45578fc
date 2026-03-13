@@ -1,0 +1,338 @@
+---
+title: React SDK
+description: Build fully featured customer support experiences in React with the @cossistant/react package.
+icon: react
+---
+
+## Overview
+
+The `@cossistant/react` package provides a complete React SDK for building AI-powered support widgets. It includes:
+
+- **Prebuilt Widget**: Drop-in `<Support />` component
+- **Headless Hooks**: Build custom UIs with React hooks
+- **UI Primitives**: Composable building blocks
+- **Real-time**: WebSocket-driven live chat
+- **Type-safe**: Full TypeScript support
+
+## Installation
+
+<CodeGroup>
+```bash npm
+npm install @cossistant/react
+```
+
+```bash yarn
+yarn add @cossistant/react
+```
+
+```bash pnpm
+pnpm add @cossistant/react
+```
+
+```bash bun
+bun add @cossistant/react
+```
+</CodeGroup>
+
+## CSS Import Options
+
+The SDK provides two CSS entrypoints to fit your setup:
+
+### Option 1: Tailwind v4 Source
+
+If you're using Tailwind CSS v4, import the source file to enable full theme customization:
+
+```tsx
+import "@cossistant/react/support.css";
+```
+
+This allows you to customize colors, spacing, and other design tokens through your Tailwind config.
+
+### Option 2: Plain CSS
+
+Import the pre-compiled CSS with no Tailwind dependency:
+
+```tsx
+import "@cossistant/react/styles.css";
+```
+
+This file contains all the compiled styles and works in any React application without requiring Tailwind CSS.
+
+<Note>
+**Tailwind v3 is not supported.** Use the plain CSS import if you're on Tailwind v3.
+</Note>
+
+## Quick Start
+
+### Basic Setup
+
+```tsx App.tsx
+import { SupportProvider, Support } from "@cossistant/react";
+import "@cossistant/react/styles.css";
+
+export function App() {
+  return (
+    <SupportProvider>
+      <Support />
+    </SupportProvider>
+  );
+}
+```
+
+That's it! The SDK auto-detects your public key from environment variables:
+
+- `VITE_COSSISTANT_API_KEY` (Vite)
+- `NEXT_PUBLIC_COSSISTANT_API_KEY` (Next.js)
+- `COSSISTANT_API_KEY` (other)
+
+### Explicit API Key
+
+You can also pass the API key explicitly:
+
+```tsx
+<SupportProvider publicKey="pk_live_...">
+  <Support />
+</SupportProvider>
+```
+
+## Core Components
+
+### SupportProvider
+
+The root provider that manages support widget state, WebSocket connections, and API client.
+
+```tsx
+import { SupportProvider } from "@cossistant/react";
+
+<SupportProvider
+  publicKey="pk_live_..."
+  apiUrl="https://api.cossistant.com/v1"
+  wsUrl="wss://api.cossistant.com/ws"
+  autoConnect={true}
+  size="normal"
+>
+  {children}
+</SupportProvider>
+```
+
+<ParamField path="publicKey" type="string">
+  Your Cossistant public API key. Auto-detected from environment variables if not provided.
+</ParamField>
+
+<ParamField path="apiUrl" type="string" default="https://api.cossistant.com/v1">
+  API base URL for REST requests.
+</ParamField>
+
+<ParamField path="wsUrl" type="string" default="wss://api.cossistant.com/ws">
+  WebSocket URL for real-time updates.
+</ParamField>
+
+<ParamField path="autoConnect" type="boolean" default={true}>
+  Whether to automatically establish WebSocket connection.
+</ParamField>
+
+<ParamField path="size" type="'normal' | 'larger'" default="normal">
+  Widget size configuration.
+</ParamField>
+
+<ParamField path="defaultMessages" type="DefaultMessage[]">
+  Initial welcome messages shown before conversation starts.
+</ParamField>
+
+<ParamField path="quickOptions" type="string[]">
+  Quick reply options displayed to users.
+</ParamField>
+
+<ParamField path="onWsConnect" type="() => void">
+  Callback fired when WebSocket connects.
+</ParamField>
+
+<ParamField path="onWsDisconnect" type="() => void">
+  Callback fired when WebSocket disconnects.
+</ParamField>
+
+<ParamField path="onWsError" type="(error: Error) => void">
+  Callback fired on WebSocket errors.
+</ParamField>
+
+### Support Component
+
+The main support widget with chat, routing, and real-time features.
+
+```tsx
+import { Support } from "@cossistant/react";
+
+<Support
+  theme="dark"
+  side="top"
+  align="end"
+  sideOffset={16}
+  defaultOpen={false}
+  quickOptions={["Help", "Pricing", "Contact"]}
+/>
+```
+
+See the [Support Component](/sdk/support-component) page for full props documentation.
+
+### IdentifySupportVisitor
+
+Component for identifying visitors and associating them with contacts.
+
+```tsx
+import { IdentifySupportVisitor } from "@cossistant/react";
+
+<IdentifySupportVisitor
+  externalId={user.id}
+  email={user.email}
+  name={user.name}
+  image={user.avatar}
+  metadata={{
+    plan: "pro",
+    company: "Acme Inc",
+  }}
+/>
+```
+
+<ParamField path="externalId" type="string">
+  Your internal user ID (required if email not provided).
+</ParamField>
+
+<ParamField path="email" type="string">
+  User's email address (required if externalId not provided).
+</ParamField>
+
+<ParamField path="name" type="string | null">
+  User's display name.
+</ParamField>
+
+<ParamField path="image" type="string | null">
+  URL to user's avatar image.
+</ParamField>
+
+<ParamField path="metadata" type="VisitorMetadata | null">
+  Custom metadata to attach to the contact. Type: `Record<string, string | number | boolean | null>`
+</ParamField>
+
+### SupportConfig
+
+Component for configuring widget behavior per page or route.
+
+```tsx
+import { SupportConfig, SenderType } from "@cossistant/react";
+
+<SupportConfig
+  defaultMessages={[
+    {
+      content: "Welcome! How can we help you today?",
+      senderType: SenderType.TeamMember,
+    },
+  ]}
+  quickOptions={[
+    "How does billing work?",
+    "What's included in Pro?",
+    "Can I cancel anytime?",
+  ]}
+/>
+```
+
+<ParamField path="defaultMessages" type="DefaultMessage[]">
+  Custom welcome messages shown before a conversation starts.
+</ParamField>
+
+<ParamField path="quickOptions" type="string[]">
+  Quick reply options displayed to users.
+</ParamField>
+
+## Hooks
+
+The React SDK exports all hooks for programmatic control. See the [Hooks](/sdk/hooks) page for detailed documentation of:
+
+- `useSupport()` - Access support context
+- `useVisitor()` - Visitor identification and metadata
+- `useSendMessage()` - Send messages programmatically
+- `useConversation()` - Load conversation data
+- `useConversations()` - List conversations
+- `useCreateConversation()` - Create new conversations
+- And many more...
+
+## Primitives
+
+Headless UI components for building custom support experiences. See the [Primitives](/sdk/primitives) page for:
+
+- `Primitives.Trigger` - Custom trigger button
+- `Primitives.Window` - Dialog container
+- `Primitives.ConversationTimeline` - Message timeline
+- `Primitives.MultimodalInput` - Rich text input
+- `Primitives.Avatar` - User avatars
+- And more...
+
+## TypeScript Support
+
+The SDK is written in TypeScript and exports all types:
+
+```tsx
+import type {
+  SupportProps,
+  SupportProviderProps,
+  DefaultMessage,
+  VisitorMetadata,
+  TriggerRenderProps,
+  SupportHandle,
+} from "@cossistant/react";
+```
+
+## Environment Variables
+
+The SDK auto-detects API keys from these environment variables:
+
+<CodeGroup>
+```bash Vite
+VITE_COSSISTANT_API_KEY=pk_live_...
+```
+
+```bash Next.js
+NEXT_PUBLIC_COSSISTANT_API_KEY=pk_live_...
+```
+
+```bash Other
+COSSISTANT_API_KEY=pk_live_...
+```
+</CodeGroup>
+
+## Package Exports
+
+The package provides granular exports for tree-shaking:
+
+```tsx
+import { Support, SupportProvider } from "@cossistant/react";
+import { IdentifySupportVisitor } from "@cossistant/react/identify-visitor";
+import { SupportConfig } from "@cossistant/react/support-config";
+import { useSupport, useVisitor } from "@cossistant/react/sdk/hooks";
+import * as Primitives from "@cossistant/react/primitives";
+```
+
+## Browser Support
+
+The SDK supports all modern browsers:
+
+- Chrome (latest)
+- Firefox (latest)
+- Safari (latest)
+- Edge (latest)
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Next.js SDK" icon="react" href="/sdk/nextjs-sdk">
+    Use the Next.js-optimized SDK with Server Components
+  </Card>
+  <Card title="Support Component" icon="message" href="/sdk/support-component">
+    Learn about the Support component props and features
+  </Card>
+  <Card title="Hooks" icon="code" href="/sdk/hooks">
+    Explore all available React hooks
+  </Card>
+  <Card title="Primitives" icon="cube" href="/sdk/primitives">
+    Build custom UIs with headless primitives
+  </Card>
+</CardGroup>

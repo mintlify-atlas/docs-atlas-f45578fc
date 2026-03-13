@@ -1,0 +1,448 @@
+---
+title: "Default Messages"
+description: "Pre-populate conversations with custom welcome messages and context"
+---
+
+## Overview
+
+The `SupportConfig` component allows you to customize the initial messages shown in conversations. Use default messages to welcome users, provide context, or guide them toward self-service resources.
+
+## Basic Usage
+
+<CodeGroup>
+
+```tsx Next.js
+import { SupportConfig } from "@cossistant/next";
+import { SenderType } from "@cossistant/types";
+
+export default function Page() {
+  return (
+    <>
+      <SupportConfig
+        defaultMessages={[
+          {
+            content: "Hi! How can I help you today?",
+            senderType: SenderType.TEAM_MEMBER
+          }
+        ]}
+      />
+      {/* Page content */}
+    </>
+  );
+}
+```
+
+```tsx React
+import { SupportConfig } from "@cossistant/react";
+import { SenderType } from "@cossistant/types";
+
+function App() {
+  return (
+    <>
+      <SupportConfig
+        defaultMessages={[
+          {
+            content: "Hi! How can I help you today?",
+            senderType: SenderType.TEAM_MEMBER
+          }
+        ]}
+      />
+      {/* App content */}
+    </>
+  );
+}
+```
+
+</CodeGroup>
+
+## Props
+
+<ParamField path="defaultMessages" type="DefaultMessage[]">
+  Array of messages to show when a new conversation starts. Messages are displayed in order.
+</ParamField>
+
+<ParamField path="quickOptions" type="string[]">
+  Array of suggested quick response options. See [Quick Options](/integrations/quick-options) for details.
+</ParamField>
+
+## Message Structure
+
+Each default message has the following structure:
+
+```typescript
+type DefaultMessage = {
+  content: string;           // Message text
+  senderType: SenderType;    // Who sent the message
+  senderName?: string;       // Optional sender name
+  senderImage?: string;      // Optional sender avatar
+};
+```
+
+### Sender Types
+
+<ParamField path="SenderType.TEAM_MEMBER" type="enum">
+  Message from a human support agent. Displays with agent avatar and name.
+</ParamField>
+
+<ParamField path="SenderType.AI_AGENT" type="enum">
+  Message from an AI assistant. Displays with AI agent avatar and name.
+</ParamField>
+
+<ParamField path="SenderType.VISITOR" type="enum">
+  Message from the visitor (customer). Rarely used for default messages.
+</ParamField>
+
+<ParamField path="SenderType.SYSTEM" type="enum">
+  System-generated message. Displays as a neutral notification.
+</ParamField>
+
+## Page-Specific Messages
+
+Customize messages based on the current page:
+
+<Tabs>
+  <Tab title="Homepage">
+    ```tsx
+    // app/page.tsx
+    <SupportConfig
+      defaultMessages={[
+        {
+          content: "Welcome! Ready to get started?",
+          senderType: SenderType.AI_AGENT,
+          senderName: "Assistant"
+        }
+      ]}
+    />
+    ```
+  </Tab>
+  
+  <Tab title="Pricing Page">
+    ```tsx
+    // app/pricing/page.tsx
+    <SupportConfig
+      defaultMessages={[
+        {
+          content: "Need help choosing a plan? I'm here to answer questions!",
+          senderType: SenderType.TEAM_MEMBER,
+          senderName: "Sales Team"
+        }
+      ]}
+    />
+    ```
+  </Tab>
+  
+  <Tab title="Dashboard">
+    ```tsx
+    // app/dashboard/page.tsx
+    <SupportConfig
+      defaultMessages={[
+        {
+          content: "Questions about your account or features? Ask away!",
+          senderType: SenderType.AI_AGENT
+        }
+      ]}
+    />
+    ```
+  </Tab>
+  
+  <Tab title="Error Page">
+    ```tsx
+    // app/error.tsx
+    <SupportConfig
+      defaultMessages={[
+        {
+          content: "Looks like something went wrong. How can I help?",
+          senderType: SenderType.TEAM_MEMBER,
+          senderName: "Support"
+        }
+      ]}
+    />
+    ```
+  </Tab>
+</Tabs>
+
+## Personalized Messages
+
+Combine with user data for personalized greetings:
+
+```tsx
+import { SupportConfig } from "@cossistant/next";
+import { SenderType } from "@cossistant/types";
+
+export default function Page() {
+  const user = await getCurrentUser();
+  
+  const messages = [
+    {
+      content: user
+        ? `Hi ${user.name}! How can I help you today?`
+        : "Hi there! How can I help you?",
+      senderType: SenderType.AI_AGENT
+    }
+  ];
+  
+  return <SupportConfig defaultMessages={messages} />;
+}
+```
+
+## Multi-Message Flows
+
+Create conversational flows with multiple messages:
+
+```tsx
+<SupportConfig
+  defaultMessages={[
+    {
+      content: "Welcome to Acme Corp!",
+      senderType: SenderType.SYSTEM
+    },
+    {
+      content: "I'm Sarah from the support team. I'm here to help! 👋",
+      senderType: SenderType.TEAM_MEMBER,
+      senderName: "Sarah",
+      senderImage: "/avatars/sarah.jpg"
+    },
+    {
+      content: "What brings you here today?",
+      senderType: SenderType.TEAM_MEMBER,
+      senderName: "Sarah"
+    }
+  ]}
+/>
+```
+
+<Note>
+  Messages are displayed in order with a slight delay between each one to simulate a natural conversation flow.
+</Note>
+
+## Dynamic Content
+
+Use functions to generate dynamic message content:
+
+```tsx
+function DashboardLayout({ children }) {
+  const user = useUser();
+  const timeOfDay = getTimeOfDay();
+  
+  const greeting = `Good ${timeOfDay}, ${user.name}!`;
+  
+  return (
+    <>
+      <SupportConfig
+        defaultMessages={[
+          {
+            content: greeting,
+            senderType: SenderType.AI_AGENT
+          },
+          {
+            content: "Your dashboard is looking great today. Need any help?",
+            senderType: SenderType.AI_AGENT
+          }
+        ]}
+      />
+      {children}
+    </>
+  );
+}
+
+function getTimeOfDay() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "morning";
+  if (hour < 18) return "afternoon";
+  return "evening";
+}
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Keep it concise">
+    Default messages should be brief and actionable. Aim for 1-2 sentences per message.
+    
+    ```tsx
+    // ✅ Good
+    {
+      content: "Hi! How can I help?",
+      senderType: SenderType.TEAM_MEMBER
+    }
+    
+    // ❌ Too long
+    {
+      content: "Welcome to our platform! We're excited to have you here. Our support team is available 24/7 to assist you with any questions or concerns you may have. Please feel free to ask anything!",
+      senderType: SenderType.TEAM_MEMBER
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Use appropriate sender types">
+    Match the sender type to the message context:
+    - Use `TEAM_MEMBER` for human, personalized support
+    - Use `AI_AGENT` for automated, instant responses
+    - Use `SYSTEM` for notifications and status updates
+  </Accordion>
+  
+  <Accordion title="Avoid redundant messages">
+    Don't repeat the same message on every page. Use specific messages for specific contexts.
+  </Accordion>
+  
+  <Accordion title="Test different variations">
+    Experiment with different greetings to find what works best:
+    - Friendly: "Hey there! 👋"
+    - Professional: "Hello, how may I assist you?"
+    - Playful: "What's up? 🚀"
+  </Accordion>
+</AccordionGroup>
+
+## Real-World Examples
+
+<Tabs>
+  <Tab title="SaaS Product">
+    ```tsx
+    <SupportConfig
+      defaultMessages={[
+        {
+          content: "Questions about your account or billing?",
+          senderType: SenderType.TEAM_MEMBER,
+          senderName: "Support Team"
+        }
+      ]}
+    />
+    ```
+  </Tab>
+  
+  <Tab title="E-commerce">
+    ```tsx
+    <SupportConfig
+      defaultMessages={[
+        {
+          content: "Need help finding something or tracking your order?",
+          senderType: SenderType.AI_AGENT,
+          senderName: "Shopping Assistant"
+        }
+      ]}
+    />
+    ```
+  </Tab>
+  
+  <Tab title="Documentation">
+    ```tsx
+    <SupportConfig
+      defaultMessages={[
+        {
+          content: "Can't find what you're looking for? Ask me anything!",
+          senderType: SenderType.AI_AGENT
+        }
+      ]}
+    />
+    ```
+  </Tab>
+  
+  <Tab title="Onboarding">
+    ```tsx
+    <SupportConfig
+      defaultMessages={[
+        {
+          content: "Welcome aboard! 🎉",
+          senderType: SenderType.SYSTEM
+        },
+        {
+          content: "I'm here to help you get set up. Where should we start?",
+          senderType: SenderType.TEAM_MEMBER,
+          senderName: "Onboarding Specialist"
+        }
+      ]}
+    />
+    ```
+  </Tab>
+</Tabs>
+
+## Using with Identify Visitors
+
+Combine with `IdentifySupportVisitor` for fully personalized experiences:
+
+```tsx
+import { IdentifySupportVisitor, SupportConfig } from "@cossistant/next";
+import { SenderType } from "@cossistant/types";
+
+export default function AppLayout({ children }) {
+  const user = await getCurrentUser();
+  
+  return (
+    <>
+      <IdentifySupportVisitor
+        externalId={user.id}
+        email={user.email}
+        name={user.name}
+      />
+      <SupportConfig
+        defaultMessages={[
+          {
+            content: `Hi ${user.name}! I see you're on the ${user.plan} plan.`,
+            senderType: SenderType.AI_AGENT
+          },
+          {
+            content: "How can I help you today?",
+            senderType: SenderType.AI_AGENT
+          }
+        ]}
+      />
+      {children}
+    </>
+  );
+}
+```
+
+## Behavior Notes
+
+<Info>
+  - Default messages only appear for **new conversations**
+  - If the user has an existing conversation, they'll see that instead
+  - Messages are **not persisted** to the database until the user sends their first message
+  - Rendering `SupportConfig` multiple times will use the most recent values
+</Info>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Messages not appearing">
+    Ensure `SupportConfig` is rendered inside `SupportProvider`:
+    
+    ```tsx
+    <SupportProvider>
+      <SupportConfig defaultMessages={[...]} />
+      <Support />
+    </SupportProvider>
+    ```
+  </Accordion>
+  
+  <Accordion title="Old messages still showing">
+    The component updates on prop changes. Try:
+    1. Check that the `defaultMessages` array is actually changing
+    2. Clear your browser's cache
+    3. Start a new conversation
+  </Accordion>
+  
+  <Accordion title="Sender name/image not showing">
+    Verify that:
+    - You're using a valid sender type
+    - The `senderName` and `senderImage` props are correctly formatted
+    - Image URLs are publicly accessible
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quick Options" icon="bolt" href="/integrations/quick-options">
+    Add suggested quick response buttons
+  </Card>
+  <Card title="Identify Visitors" icon="user" href="/integrations/identify-visitors">
+    Personalize messages with user data
+  </Card>
+  <Card title="Text Localization" icon="language" href="/customization/text-localization">
+    Translate messages to other languages
+  </Card>
+  <Card title="Support Component" icon="circle-question" href="/sdk/support-component">
+    Full widget API reference
+  </Card>
+</CardGroup>

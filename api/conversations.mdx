@@ -1,0 +1,881 @@
+---
+title: "Conversations"
+description: "REST API endpoints for managing conversations"
+---
+
+The Conversations API allows you to create, retrieve, and manage conversations between visitors and your team. Conversations are the core entity that holds messages, events, and timeline items.
+
+## Authentication
+
+All conversation endpoints support both public and private API keys:
+
+- **Public API Key** (`X-Public-Key` header): For client-side usage, limited to visitor-owned conversations
+- **Private API Key** (`Authorization` header): For server-side usage with full access
+
+## Create Conversation
+
+<Card title="POST /conversations" icon="plus">
+Create a new conversation with optional initial timeline items (messages).
+</Card>
+
+### Endpoint
+
+```
+POST https://api.cossistant.com/v1/conversations
+```
+
+### Headers
+
+<ParamField header="Authorization" type="string">
+  Private API key in Bearer token format: `Bearer sk_test_...`
+  
+  Use for server-to-server authentication.
+</ParamField>
+
+<ParamField header="X-Public-Key" type="string">
+  Public API key: `pk_test_...`
+  
+  Use for browser-based authentication from whitelisted domains.
+</ParamField>
+
+<ParamField header="X-Visitor-Id" type="string">
+  Visitor ID from localStorage (26-character ULID).
+  
+  Example: `01JG000000000000000000000`
+</ParamField>
+
+### Request Body
+
+<ParamField body="visitorId" type="string">
+  Visitor ID. Optional if provided via `X-Visitor-Id` header.
+</ParamField>
+
+<ParamField body="conversationId" type="string">
+  Optional idempotency key for conversation creation. If provided, it is scoped to one organization+website+visitor tuple. Retries with the same tuple reuse the existing conversation.
+</ParamField>
+
+<ParamField body="defaultTimelineItems" type="array" required>
+  Array of initial timeline items (messages) to create with the conversation.
+  
+  Each item contains:
+  - `type`: `"message"` or `"event"` (default: `"message"`)
+  - `text`: Message text content
+  - `parts`: Array of message parts (text, images, files, etc.)
+  - `visibility`: `"public"` or `"private"` (default: `"public"`)
+  - `visitorId`, `userId`, or `aiAgentId`: Message sender
+</ParamField>
+
+<ParamField body="channel" type="string" default="widget">
+  Which channel the conversation is from (e.g., `"widget"`, `"email"`, `"api"`)
+</ParamField>
+
+### Response
+
+<ResponseField name="conversation" type="object">
+  The created conversation object.
+  
+  <Expandable title="properties">
+    <ResponseField name="id" type="string">
+      Unique conversation ID (ULID)
+    </ResponseField>
+    
+    <ResponseField name="title" type="string">
+      Conversation title (optional)
+    </ResponseField>
+    
+    <ResponseField name="visitorId" type="string">
+      Owner visitor ID
+    </ResponseField>
+    
+    <ResponseField name="websiteId" type="string">
+      Associated website ID
+    </ResponseField>
+    
+    <ResponseField name="status" type="string">
+      Conversation status: `"open"`, `"closed"`, `"resolved"`, or `"spam"`
+    </ResponseField>
+    
+    <ResponseField name="visitorRating" type="number | null">
+      Visitor rating (1-5) if provided
+    </ResponseField>
+    
+    <ResponseField name="visitorRatingAt" type="string | null">
+      When the rating was submitted
+    </ResponseField>
+    
+    <ResponseField name="createdAt" type="string">
+      ISO 8601 timestamp
+    </ResponseField>
+    
+    <ResponseField name="updatedAt" type="string">
+      ISO 8601 timestamp
+    </ResponseField>
+    
+    <ResponseField name="lastTimelineItem" type="object">
+      The most recent timeline item in the conversation
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="initialTimelineItems" type="array">
+  Array of created timeline items
+</ResponseField>
+
+### Example Request
+
+```bash cURL
+curl -X POST https://api.cossistant.com/v1/conversations \
+  -H "X-Public-Key: pk_test_abc123..." \
+  -H "X-Visitor-Id: 01JG000000000000000000000" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "conversationId": "unique-conversation-123",
+    "defaultTimelineItems": [
+      {
+        "type": "message",
+        "text": "Hello, I need help with my account",
+        "visibility": "public",
+        "parts": [
+          {
+            "type": "text",
+            "text": "Hello, I need help with my account"
+          }
+        ]
+      }
+    ],
+    "channel": "widget"
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.cossistant.com/v1/conversations', {
+  method: 'POST',
+  headers: {
+    'X-Public-Key': 'pk_test_abc123...',
+    'X-Visitor-Id': '01JG000000000000000000000',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    conversationId: 'unique-conversation-123',
+    defaultTimelineItems: [
+      {
+        type: 'message',
+        text: 'Hello, I need help with my account',
+        visibility: 'public',
+        parts: [
+          {
+            type: 'text',
+            text: 'Hello, I need help with my account'
+          }
+        ]
+      }
+    ],
+    channel: 'widget'
+  })
+});
+
+const data = await response.json();
+```
+
+### Example Response
+
+```json 200 - Success
+{
+  "conversation": {
+    "id": "01JG123456789ABCDEFGHIJK",
+    "title": null,
+    "visitorId": "01JG000000000000000000000",
+    "websiteId": "01JG000000000000000000001",
+    "status": "open",
+    "visitorRating": null,
+    "visitorRatingAt": null,
+    "createdAt": "2024-01-15T10:30:00.000Z",
+    "updatedAt": "2024-01-15T10:30:00.000Z",
+    "lastTimelineItem": {
+      "id": "01JG123456789ABCDEFGHIJKL",
+      "type": "message",
+      "text": "Hello, I need help with my account",
+      "createdAt": "2024-01-15T10:30:00.000Z"
+    }
+  },
+  "initialTimelineItems": [
+    {
+      "id": "01JG123456789ABCDEFGHIJKL",
+      "conversationId": "01JG123456789ABCDEFGHIJK",
+      "organizationId": "01JG000000000000000000002",
+      "type": "message",
+      "visibility": "public",
+      "text": "Hello, I need help with my account",
+      "parts": [
+        {
+          "type": "text",
+          "text": "Hello, I need help with my account"
+        }
+      ],
+      "userId": null,
+      "aiAgentId": null,
+      "visitorId": "01JG000000000000000000000",
+      "createdAt": "2024-01-15T10:30:00.000Z"
+    }
+  ]
+}
+```
+
+```json 409 - Conflict
+{
+  "code": "CONVERSATION_ID_CONFLICT",
+  "error": "Conversation ID already exists for another visitor"
+}
+```
+
+---
+
+## List Conversations
+
+<Card title="GET /conversations" icon="list">
+Retrieve a paginated list of conversations for a specific visitor.
+</Card>
+
+### Endpoint
+
+```
+GET https://api.cossistant.com/v1/conversations
+```
+
+### Query Parameters
+
+<ParamField query="visitorId" type="string">
+  Visitor ID to fetch conversations for. Optional if provided via `X-Visitor-Id` header.
+</ParamField>
+
+<ParamField query="page" type="number" default="1">
+  Page number for pagination (min: 1)
+</ParamField>
+
+<ParamField query="limit" type="number" default="6">
+  Number of conversations per page (min: 1, max: 100)
+</ParamField>
+
+<ParamField query="status" type="string">
+  Filter by conversation status: `"open"` or `"closed"`
+</ParamField>
+
+<ParamField query="orderBy" type="string" default="updatedAt">
+  Field to order by: `"createdAt"` or `"updatedAt"`
+</ParamField>
+
+<ParamField query="order" type="string" default="desc">
+  Order direction: `"asc"` or `"desc"`
+</ParamField>
+
+### Response
+
+<ResponseField name="conversations" type="array">
+  Array of conversation objects
+</ResponseField>
+
+<ResponseField name="pagination" type="object">
+  Pagination metadata
+  
+  <Expandable title="properties">
+    <ResponseField name="page" type="number">
+      Current page number
+    </ResponseField>
+    
+    <ResponseField name="limit" type="number">
+      Items per page
+    </ResponseField>
+    
+    <ResponseField name="total" type="number">
+      Total number of conversations
+    </ResponseField>
+    
+    <ResponseField name="totalPages" type="number">
+      Total number of pages
+    </ResponseField>
+    
+    <ResponseField name="hasMore" type="boolean">
+      Whether more pages are available
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example Request
+
+```bash cURL
+curl -X GET "https://api.cossistant.com/v1/conversations?page=1&limit=10&status=open" \
+  -H "X-Public-Key: pk_test_abc123..." \
+  -H "X-Visitor-Id: 01JG000000000000000000000"
+```
+
+### Example Response
+
+```json 200 - Success
+{
+  "conversations": [
+    {
+      "id": "01JG123456789ABCDEFGHIJK",
+      "title": null,
+      "visitorId": "01JG000000000000000000000",
+      "websiteId": "01JG000000000000000000001",
+      "status": "open",
+      "visitorRating": null,
+      "visitorRatingAt": null,
+      "createdAt": "2024-01-15T10:30:00.000Z",
+      "updatedAt": "2024-01-15T10:35:00.000Z",
+      "lastTimelineItem": {
+        "id": "01JG123456789ABCDEFGHIJKM",
+        "type": "message",
+        "text": "Thanks for reaching out!",
+        "createdAt": "2024-01-15T10:35:00.000Z"
+      }
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 1,
+    "totalPages": 1,
+    "hasMore": false
+  }
+}
+```
+
+---
+
+## Get Conversation
+
+<Card title="GET /conversations/:conversationId" icon="message">
+Retrieve a specific conversation by ID.
+</Card>
+
+### Endpoint
+
+```
+GET https://api.cossistant.com/v1/conversations/{conversationId}
+```
+
+### Path Parameters
+
+<ParamField path="conversationId" type="string" required>
+  The ID of the conversation to retrieve
+</ParamField>
+
+### Response
+
+<ResponseField name="conversation" type="object">
+  The conversation object with the same structure as in "Create Conversation"
+</ResponseField>
+
+### Example Request
+
+```bash cURL
+curl -X GET https://api.cossistant.com/v1/conversations/01JG123456789ABCDEFGHIJK \
+  -H "X-Public-Key: pk_test_abc123..."
+```
+
+### Example Response
+
+```json 200 - Success
+{
+  "conversation": {
+    "id": "01JG123456789ABCDEFGHIJK",
+    "title": null,
+    "visitorId": "01JG000000000000000000000",
+    "websiteId": "01JG000000000000000000001",
+    "status": "open",
+    "visitorRating": null,
+    "visitorRatingAt": null,
+    "createdAt": "2024-01-15T10:30:00.000Z",
+    "updatedAt": "2024-01-15T10:35:00.000Z"
+  }
+}
+```
+
+```json 404 - Not Found
+{
+  "error": "Conversation not found"
+}
+```
+
+---
+
+## Mark Conversation as Seen
+
+<Card title="POST /conversations/:conversationId/seen" icon="eye">
+Record a visitor's last seen timestamp for a conversation.
+</Card>
+
+### Endpoint
+
+```
+POST https://api.cossistant.com/v1/conversations/{conversationId}/seen
+```
+
+### Path Parameters
+
+<ParamField path="conversationId" type="string" required>
+  The ID of the conversation to mark as seen
+</ParamField>
+
+### Request Body
+
+<ParamField body="visitorId" type="string">
+  Visitor ID. Optional if provided via `X-Visitor-Id` header.
+</ParamField>
+
+### Response
+
+<ResponseField name="conversationId" type="string">
+  The ID of the conversation that was marked as seen
+</ResponseField>
+
+<ResponseField name="lastSeenAt" type="string">
+  ISO 8601 timestamp when the visitor last saw the conversation
+</ResponseField>
+
+### Example Request
+
+```bash cURL
+curl -X POST https://api.cossistant.com/v1/conversations/01JG123456789ABCDEFGHIJK/seen \
+  -H "X-Public-Key: pk_test_abc123..." \
+  -H "X-Visitor-Id: 01JG000000000000000000000" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+### Example Response
+
+```json 200 - Success
+{
+  "conversationId": "01JG123456789ABCDEFGHIJK",
+  "lastSeenAt": "2024-01-15T10:40:00.000Z"
+}
+```
+
+---
+
+## Set Typing Indicator
+
+<Card title="POST /conversations/:conversationId/typing" icon="keyboard">
+Report a visitor's typing state in real-time.
+</Card>
+
+### Endpoint
+
+```
+POST https://api.cossistant.com/v1/conversations/{conversationId}/typing
+```
+
+### Path Parameters
+
+<ParamField path="conversationId" type="string" required>
+  The ID of the conversation
+</ParamField>
+
+### Request Body
+
+<ParamField body="isTyping" type="boolean" required>
+  Whether the visitor is currently typing
+</ParamField>
+
+<ParamField body="visitorPreview" type="string">
+  Optional preview of the visitor's message while typing (max 2000 characters). Only processed when `isTyping` is `true`.
+</ParamField>
+
+<ParamField body="visitorId" type="string">
+  Visitor ID. Optional if provided via `X-Visitor-Id` header.
+</ParamField>
+
+### Response
+
+<ResponseField name="conversationId" type="string">
+  The ID of the conversation
+</ResponseField>
+
+<ResponseField name="isTyping" type="boolean">
+  Echo of the reported typing state
+</ResponseField>
+
+<ResponseField name="visitorPreview" type="string | null">
+  Preview text that was forwarded, or null
+</ResponseField>
+
+<ResponseField name="sentAt" type="string">
+  ISO 8601 timestamp when the event was recorded
+</ResponseField>
+
+### Example Request
+
+```bash cURL
+curl -X POST https://api.cossistant.com/v1/conversations/01JG123456789ABCDEFGHIJK/typing \
+  -H "X-Public-Key: pk_test_abc123..." \
+  -H "X-Visitor-Id: 01JG000000000000000000000" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "isTyping": true,
+    "visitorPreview": "Can you help me with..."
+  }'
+```
+
+### Example Response
+
+```json 200 - Success
+{
+  "conversationId": "01JG123456789ABCDEFGHIJK",
+  "isTyping": true,
+  "visitorPreview": "Can you help me with...",
+  "sentAt": "2024-01-15T10:41:00.000Z"
+}
+```
+
+---
+
+## Submit Rating
+
+<Card title="POST /conversations/:conversationId/rating" icon="star">
+Submit a visitor rating (1-5) for a resolved conversation.
+</Card>
+
+### Endpoint
+
+```
+POST https://api.cossistant.com/v1/conversations/{conversationId}/rating
+```
+
+### Path Parameters
+
+<ParamField path="conversationId" type="string" required>
+  The ID of the conversation to rate
+</ParamField>
+
+### Request Body
+
+<ParamField body="rating" type="number" required>
+  Visitor rating (1-5)
+</ParamField>
+
+<ParamField body="comment" type="string">
+  Optional written feedback about the conversation
+</ParamField>
+
+<ParamField body="visitorId" type="string">
+  Visitor ID. Optional if provided via `X-Visitor-Id` header.
+</ParamField>
+
+### Response
+
+<ResponseField name="conversationId" type="string">
+  The ID of the conversation that was rated
+</ResponseField>
+
+<ResponseField name="rating" type="number">
+  The rating that was saved (1-5)
+</ResponseField>
+
+<ResponseField name="ratedAt" type="string">
+  ISO 8601 timestamp when the rating was recorded
+</ResponseField>
+
+### Example Request
+
+```bash cURL
+curl -X POST https://api.cossistant.com/v1/conversations/01JG123456789ABCDEFGHIJK/rating \
+  -H "X-Public-Key: pk_test_abc123..." \
+  -H "X-Visitor-Id: 01JG000000000000000000000" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "rating": 5,
+    "comment": "Great support, very helpful!"
+  }'
+```
+
+### Example Response
+
+```json 200 - Success
+{
+  "conversationId": "01JG123456789ABCDEFGHIJK",
+  "rating": 5,
+  "ratedAt": "2024-01-15T11:00:00.000Z"
+}
+```
+
+```json 403 - Forbidden
+{
+  "error": "Conversation must be resolved before submitting a rating"
+}
+```
+
+---
+
+## Get Timeline Items
+
+<Card title="GET /conversations/:conversationId/timeline" icon="clock">
+Fetch paginated timeline items (messages and events) for a conversation.
+</Card>
+
+### Endpoint
+
+```
+GET https://api.cossistant.com/v1/conversations/{conversationId}/timeline
+```
+
+### Path Parameters
+
+<ParamField path="conversationId" type="string" required>
+  The ID of the conversation
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="limit" type="number" default="50">
+  Number of timeline items per page (min: 1, max: 100)
+</ParamField>
+
+<ParamField query="cursor" type="string">
+  Cursor for pagination (from previous response's `nextCursor`)
+</ParamField>
+
+### Response
+
+<ResponseField name="items" type="array">
+  Array of timeline items in chronological order
+  
+  <Expandable title="Timeline Item properties">
+    <ResponseField name="id" type="string">
+      Unique timeline item ID
+    </ResponseField>
+    
+    <ResponseField name="conversationId" type="string">
+      Parent conversation ID
+    </ResponseField>
+    
+    <ResponseField name="type" type="string">
+      Item type: `"message"`, `"event"`, `"identification"`, or `"tool"`
+    </ResponseField>
+    
+    <ResponseField name="visibility" type="string">
+      `"public"` or `"private"`
+    </ResponseField>
+    
+    <ResponseField name="text" type="string | null">
+      Main text content
+    </ResponseField>
+    
+    <ResponseField name="parts" type="array">
+      Array of message parts (text, images, files, tool calls, etc.)
+    </ResponseField>
+    
+    <ResponseField name="userId" type="string | null">
+      User who created the item
+    </ResponseField>
+    
+    <ResponseField name="aiAgentId" type="string | null">
+      AI agent who created the item
+    </ResponseField>
+    
+    <ResponseField name="visitorId" type="string | null">
+      Visitor who created the item
+    </ResponseField>
+    
+    <ResponseField name="createdAt" type="string">
+      ISO 8601 timestamp
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="nextCursor" type="string | null">
+  Cursor for the next page, null if no more items
+</ResponseField>
+
+<ResponseField name="hasNextPage" type="boolean">
+  Whether there are more items to fetch
+</ResponseField>
+
+### Example Request
+
+```bash cURL
+curl -X GET "https://api.cossistant.com/v1/conversations/01JG123456789ABCDEFGHIJK/timeline?limit=20" \
+  -H "X-Public-Key: pk_test_abc123..."
+```
+
+### Example Response
+
+```json 200 - Success
+{
+  "items": [
+    {
+      "id": "01JG123456789ABCDEFGHIJKL",
+      "conversationId": "01JG123456789ABCDEFGHIJK",
+      "organizationId": "01JG000000000000000000002",
+      "type": "message",
+      "visibility": "public",
+      "text": "Hello, I need help",
+      "parts": [
+        {
+          "type": "text",
+          "text": "Hello, I need help"
+        }
+      ],
+      "userId": null,
+      "aiAgentId": null,
+      "visitorId": "01JG000000000000000000000",
+      "createdAt": "2024-01-15T10:30:00.000Z"
+    },
+    {
+      "id": "01JG123456789ABCDEFGHIJKM",
+      "conversationId": "01JG123456789ABCDEFGHIJK",
+      "organizationId": "01JG000000000000000000002",
+      "type": "message",
+      "visibility": "public",
+      "text": "Thanks for reaching out! How can I help?",
+      "parts": [
+        {
+          "type": "text",
+          "text": "Thanks for reaching out! How can I help?"
+        }
+      ],
+      "userId": "01JG000000000000000000003",
+      "aiAgentId": null,
+      "visitorId": null,
+      "createdAt": "2024-01-15T10:31:00.000Z"
+    }
+  ],
+  "nextCursor": null,
+  "hasNextPage": false
+}
+```
+
+---
+
+## Get Seen Data
+
+<Card title="GET /conversations/:conversationId/seen" icon="check">
+Fetch seen data (read receipts) for a conversation.
+</Card>
+
+### Endpoint
+
+```
+GET https://api.cossistant.com/v1/conversations/{conversationId}/seen
+```
+
+### Path Parameters
+
+<ParamField path="conversationId" type="string" required>
+  The ID of the conversation
+</ParamField>
+
+### Response
+
+<ResponseField name="seenData" type="array">
+  Array of seen records showing who has read the conversation
+  
+  <Expandable title="Seen Record properties">
+    <ResponseField name="id" type="string">
+      Unique seen record ID
+    </ResponseField>
+    
+    <ResponseField name="conversationId" type="string">
+      The conversation ID
+    </ResponseField>
+    
+    <ResponseField name="userId" type="string | null">
+      User ID who saw the conversation
+    </ResponseField>
+    
+    <ResponseField name="visitorId" type="string | null">
+      Visitor ID who saw the conversation
+    </ResponseField>
+    
+    <ResponseField name="aiAgentId" type="string | null">
+      AI agent ID who saw the conversation
+    </ResponseField>
+    
+    <ResponseField name="lastSeenAt" type="string">
+      ISO 8601 timestamp of when they last saw the conversation
+    </ResponseField>
+    
+    <ResponseField name="createdAt" type="string">
+      When the seen record was created
+    </ResponseField>
+    
+    <ResponseField name="updatedAt" type="string">
+      When the seen record was last updated
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example Request
+
+```bash cURL
+curl -X GET https://api.cossistant.com/v1/conversations/01JG123456789ABCDEFGHIJK/seen \
+  -H "X-Public-Key: pk_test_abc123..."
+```
+
+### Example Response
+
+```json 200 - Success
+{
+  "seenData": [
+    {
+      "id": "01JG123456789ABCDEFGHIJKN",
+      "conversationId": "01JG123456789ABCDEFGHIJK",
+      "userId": null,
+      "visitorId": "01JG000000000000000000000",
+      "aiAgentId": null,
+      "lastSeenAt": "2024-01-15T10:40:00.000Z",
+      "createdAt": "2024-01-15T10:30:00.000Z",
+      "updatedAt": "2024-01-15T10:40:00.000Z",
+      "deletedAt": null
+    },
+    {
+      "id": "01JG123456789ABCDEFGHIJKO",
+      "conversationId": "01JG123456789ABCDEFGHIJK",
+      "userId": "01JG000000000000000000003",
+      "visitorId": null,
+      "aiAgentId": null,
+      "lastSeenAt": "2024-01-15T10:42:00.000Z",
+      "createdAt": "2024-01-15T10:31:00.000Z",
+      "updatedAt": "2024-01-15T10:42:00.000Z",
+      "deletedAt": null
+    }
+  ]
+}
+```
+
+---
+
+## Error Responses
+
+All endpoints may return these standard error responses:
+
+```json 400 - Bad Request
+{
+  "error": "Invalid request data"
+}
+```
+
+```json 401 - Unauthorized
+{
+  "error": "Invalid API key"
+}
+```
+
+```json 403 - Forbidden
+{
+  "error": "Access denied"
+}
+```
+
+```json 404 - Not Found
+{
+  "error": "Resource not found"
+}
+```
+
+```json 500 - Internal Server Error
+{
+  "error": "Internal server error"
+}
+```

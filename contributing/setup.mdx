@@ -1,0 +1,251 @@
+---
+title: Development Setup
+description: Set up the Cossistant monorepo locally and get your development environment running.
+---
+
+This guide walks you through setting up Cossistant for local development. You'll install dependencies, start services, and configure the database.
+
+## Prerequisites
+
+Before you start, make sure your machine has:
+
+- **Docker Desktop** - Required for running Postgres and Redis locally
+- **Bun v1.2+** - Our package manager and runtime ([install Bun](https://bun.sh))
+- **Git** - For version control
+- **Node-compatible shell tooling** - Helpful for local debugging and scripts
+
+## Installation
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/cossistantcom/cossistant.git
+    cd cossistant
+    ```
+  </Step>
+
+  <Step title="Install dependencies">
+    ```bash
+    bun install --workspaces
+    ```
+  </Step>
+
+  <Step title="Start all services">
+    ```bash
+    bun dev
+    ```
+
+    This command will:
+    1. Start Docker Compose (Postgres + Redis containers)
+    2. Start the API server with Upstash Workflow in local mode
+    3. Start the Next.js web application
+  </Step>
+
+  <Step title="Run database migrations">
+    ```bash
+    cd apps/api
+    bun db:migrate
+    ```
+  </Step>
+
+  <Step title="Seed data (optional)">
+    To populate the database with sample data:
+    ```bash
+    cd apps/api
+    bun db:seed
+    ```
+  </Step>
+</Steps>
+
+<Note>
+  **Upstash Workflow runs locally** - No account needed! When the server starts, you'll see the workflow credentials displayed in your console. These credentials don't change between restarts.
+</Note>
+
+## Local Services
+
+After `bun dev` finishes, you should have:
+
+- **Web app**: `http://localhost:3000` - Landing site, docs, and dashboard
+- **API server**: `http://localhost:3001` - REST, tRPC, WebSocket, and auth flows
+- **Postgres**: `localhost:5432` - Relational data
+- **Redis**: `localhost:6379` - Queues, caching, and real-time support
+- **Upstash Workflow**: Local mode credentials printed in the API console output
+
+## Monorepo Structure
+
+Cossistant uses a Turborepo monorepo with the following workspaces:
+
+### Apps
+
+- **`apps/api`** - Hono + tRPC backend with WebSocket server
+  - RESTful and tRPC APIs
+  - Real-time WebSocket communication
+  - Database queries and mutations
+  - Authentication via Better Auth
+  - Background jobs via Upstash Workflow
+
+- **`apps/web`** - Next.js application
+  - Marketing landing page
+  - Documentation (Fumadocs)
+  - Dashboard interface
+
+### Packages
+
+- **`packages/react`** - Main React SDK
+  - Headless hooks and primitives
+  - Pre-built `<Support />` component
+  - Real-time WebSocket integration
+
+- **`packages/next`** - Next.js-specific SDK
+  - Server Component support
+  - Next.js optimized bindings
+
+- **`packages/core`** - Shared client logic
+  - State management stores
+  - REST and WebSocket clients
+  - Utility functions
+
+- **`packages/types`** - TypeScript definitions
+  - Shared types across all packages
+  - API schemas and validation
+
+- **`packages/transactional`** - Email templates
+  - React Email templates
+  - Transactional email utilities
+
+- **`packages/location`** - Location utilities
+  - Country and timezone data
+  - Geolocation helpers
+
+## Database Management
+
+### Connection String
+
+The local database connection string is:
+
+```
+postgresql://postgres:postgres@localhost:5432/cossistant
+```
+
+This is automatically configured when you run `bun dev`.
+
+### Schema Changes
+
+When you need to modify the database schema:
+
+<Steps>
+  <Step title="Update schema files">
+    Edit the schema files in `apps/api/src/db/schema`
+  </Step>
+
+  <Step title="Generate a migration">
+    ```bash
+    cd apps/api
+    bun db:generate
+    ```
+  </Step>
+
+  <Step title="Apply the migration">
+    ```bash
+    bun db:migrate
+    ```
+  </Step>
+</Steps>
+
+### Database Studio
+
+To explore the database with Drizzle Studio:
+
+```bash
+cd apps/api
+bun db:studio
+```
+
+## Optional: S3 Setup
+
+S3 file storage is **only needed if you're testing file uploads**. For most development work, you can skip this.
+
+If you do need S3:
+
+1. Navigate to the infrastructure directory:
+   ```bash
+   cd infra/aws/s3-public-setup
+   ```
+2. Follow the instructions in the S3 Setup README
+3. The Terraform configuration will create the necessary AWS resources
+
+## Common Commands
+
+### Root-level Commands
+
+Run these from the repository root:
+
+```bash
+# Start all services
+bun dev
+
+# Build all packages
+bun run build
+
+# Build specific package
+bun run build --filter @cossistant/react
+
+# Run linter and auto-fix issues
+bun run fix
+
+# Type check all packages
+bun run check-types
+
+# Check documentation links
+bun run docs:links
+```
+
+### API Commands
+
+Run these from `apps/api`:
+
+```bash
+# Start API server only
+bun run dev
+
+# Run migrations
+bun run db:migrate
+
+# Seed database
+bun run db:seed
+
+# Open Drizzle Studio
+bun run db:studio
+
+# Generate Better Auth schema
+bun run better-auth:generate-schema
+```
+
+## Troubleshooting
+
+- **`bun dev` fails immediately**: Confirm Docker Desktop is running and ports `3000`, `3001`, `5432`, and `6379` are not already taken.
+- **Database errors after pulling main**: Rerun `bun db:migrate` from `apps/api` to catch up with schema changes.
+- **Missing dependencies or stale lockfile state**: Rerun `bun install --workspaces` from the repo root.
+- **Docs pages render but links fail**: Run `bun run docs:links` before opening a PR.
+- **You only need package-level tests**: Run `bun test` inside the package you changed instead of the entire monorepo.
+
+## Tech Stack
+
+Cossistant is built with:
+
+- **Monorepo**: Turborepo
+- **Runtime**: Bun
+- **Frontend**: React & Next.js
+- **Language**: TypeScript
+- **API**: Hono + tRPC
+- **Database**: Drizzle ORM + Postgres
+- **Auth**: Better Auth
+- **Styling**: TailwindCSS
+- **Real-time**: WebSockets
+- **Infrastructure**: Docker (Postgres + Redis)
+
+## Getting Help
+
+- **Documentation**: [cossistant.com/docs](https://cossistant.com/docs)
+- **Discord**: [Join our community](https://discord.gg/vQkPjgvzcc)
+- **GitHub Issues**: [Report bugs or request features](https://github.com/cossistantcom/cossistant/issues)

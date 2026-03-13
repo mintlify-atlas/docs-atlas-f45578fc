@@ -1,0 +1,692 @@
+---
+title: "Contacts"
+description: "REST API endpoints for managing contacts and contact organizations"
+---
+
+The Contacts API allows you to create, update, and manage contact records for your visitors. Contacts represent identified visitors with additional information like name, email, and custom metadata.
+
+## Authentication
+
+All contact endpoints require a **Public API Key** (`X-Public-Key` header).
+
+## Identify Contact
+
+<Card title="POST /contacts/identify" icon="user-check">
+Create or update a contact for a visitor. Links the visitor to the contact record.
+</Card>
+
+### Endpoint
+
+```
+POST https://api.cossistant.com/v1/contacts/identify
+```
+
+### Headers
+
+<ParamField header="X-Public-Key" type="string" required>
+  Public API key: `pk_test_...`
+</ParamField>
+
+### Request Body
+
+<ParamField body="visitorId" type="string" required>
+  The visitor ID to link to the contact (26-character ULID)
+</ParamField>
+
+<ParamField body="externalId" type="string">
+  External identifier for the contact (e.g., from your CRM or database). Used to find existing contacts.
+  
+  Either `externalId` or `email` is required.
+</ParamField>
+
+<ParamField body="email" type="string">
+  The contact's email address. Used to find existing contacts.
+  
+  Either `externalId` or `email` is required.
+</ParamField>
+
+<ParamField body="name" type="string">
+  The contact's full name
+</ParamField>
+
+<ParamField body="image" type="string">
+  URL to the contact's avatar/profile image
+</ParamField>
+
+<ParamField body="metadata" type="object">
+  Additional custom metadata as key-value pairs. Values can be strings, numbers, booleans, or null.
+  
+  Example: `{ "plan": "premium", "role": "admin", "signupDate": "2024-01-01" }`
+</ParamField>
+
+<ParamField body="contactOrganizationId" type="string">
+  The contact organization ID this contact belongs to
+</ParamField>
+
+### Response
+
+<ResponseField name="contact" type="object">
+  The created or updated contact
+  
+  <Expandable title="properties">
+    <ResponseField name="id" type="string">
+      Unique contact ID (ULID)
+    </ResponseField>
+    
+    <ResponseField name="externalId" type="string | null">
+      External identifier
+    </ResponseField>
+    
+    <ResponseField name="name" type="string | null">
+      Contact's name
+    </ResponseField>
+    
+    <ResponseField name="email" type="string | null">
+      Contact's email
+    </ResponseField>
+    
+    <ResponseField name="image" type="string | null">
+      Avatar/profile image URL
+    </ResponseField>
+    
+    <ResponseField name="metadata" type="object | null">
+      Custom metadata
+    </ResponseField>
+    
+    <ResponseField name="contactOrganizationId" type="string | null">
+      Associated organization ID
+    </ResponseField>
+    
+    <ResponseField name="websiteId" type="string">
+      Website ID
+    </ResponseField>
+    
+    <ResponseField name="organizationId" type="string">
+      Organization ID
+    </ResponseField>
+    
+    <ResponseField name="userId" type="string | null">
+      Linked user ID if applicable
+    </ResponseField>
+    
+    <ResponseField name="createdAt" type="string">
+      ISO 8601 timestamp
+    </ResponseField>
+    
+    <ResponseField name="updatedAt" type="string">
+      ISO 8601 timestamp
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="visitorId" type="string">
+  The visitor ID that was linked to the contact
+</ResponseField>
+
+### Example Request
+
+```bash cURL
+curl -X POST https://api.cossistant.com/v1/contacts/identify \
+  -H "X-Public-Key: pk_test_abc123..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "visitorId": "01JG000000000000000000000",
+    "externalId": "user_12345",
+    "email": "john.doe@example.com",
+    "name": "John Doe",
+    "image": "https://example.com/avatar.png",
+    "metadata": {
+      "plan": "premium",
+      "role": "admin",
+      "company": "Acme Corp"
+    }
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.cossistant.com/v1/contacts/identify', {
+  method: 'POST',
+  headers: {
+    'X-Public-Key': 'pk_test_abc123...',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    visitorId: '01JG000000000000000000000',
+    externalId: 'user_12345',
+    email: 'john.doe@example.com',
+    name: 'John Doe',
+    metadata: {
+      plan: 'premium',
+      role: 'admin'
+    }
+  })
+});
+
+const data = await response.json();
+```
+
+### Example Response
+
+```json 200 - Success
+{
+  "contact": {
+    "id": "01JG123456789ABCDEFGHIJKQ",
+    "externalId": "user_12345",
+    "name": "John Doe",
+    "email": "john.doe@example.com",
+    "image": "https://example.com/avatar.png",
+    "metadata": {
+      "plan": "premium",
+      "role": "admin",
+      "company": "Acme Corp"
+    },
+    "contactOrganizationId": null,
+    "websiteId": "01JG000000000000000000001",
+    "organizationId": "01JG000000000000000000002",
+    "userId": null,
+    "createdAt": "2024-01-15T10:30:00.000Z",
+    "updatedAt": "2024-01-15T10:30:00.000Z"
+  },
+  "visitorId": "01JG000000000000000000000"
+}
+```
+
+---
+
+## Create Contact
+
+<Card title="POST /contacts" icon="user-plus">
+Create a new contact. If `externalId` is provided and already exists, the contact is updated.
+</Card>
+
+### Endpoint
+
+```
+POST https://api.cossistant.com/v1/contacts
+```
+
+### Request Body
+
+<ParamField body="externalId" type="string">
+  External identifier for the contact. If provided and exists, performs an upsert.
+</ParamField>
+
+<ParamField body="name" type="string">
+  The contact's name
+</ParamField>
+
+<ParamField body="email" type="string">
+  The contact's email address
+</ParamField>
+
+<ParamField body="image" type="string">
+  URL to the contact's avatar
+</ParamField>
+
+<ParamField body="metadata" type="object">
+  Custom metadata as key-value pairs
+</ParamField>
+
+<ParamField body="contactOrganizationId" type="string">
+  Contact organization ID
+</ParamField>
+
+### Response
+
+Returns the created or updated contact object (same structure as Identify Contact).
+
+### Example Request
+
+```bash cURL
+curl -X POST https://api.cossistant.com/v1/contacts \
+  -H "X-Public-Key: pk_test_abc123..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "externalId": "user_67890",
+    "name": "Jane Smith",
+    "email": "jane.smith@example.com",
+    "metadata": {
+      "plan": "enterprise",
+      "signupDate": "2024-01-10"
+    }
+  }'
+```
+
+### Example Response
+
+```json 201 - Created
+{
+  "id": "01JG123456789ABCDEFGHIJKR",
+  "externalId": "user_67890",
+  "name": "Jane Smith",
+  "email": "jane.smith@example.com",
+  "image": null,
+  "metadata": {
+    "plan": "enterprise",
+    "signupDate": "2024-01-10"
+  },
+  "contactOrganizationId": null,
+  "websiteId": "01JG000000000000000000001",
+  "organizationId": "01JG000000000000000000002",
+  "userId": null,
+  "createdAt": "2024-01-15T11:00:00.000Z",
+  "updatedAt": "2024-01-15T11:00:00.000Z"
+}
+```
+
+---
+
+## Get Contact
+
+<Card title="GET /contacts/:id" icon="user">
+Retrieve a contact by ID.
+</Card>
+
+### Endpoint
+
+```
+GET https://api.cossistant.com/v1/contacts/{id}
+```
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  The contact ID (ULID)
+</ParamField>
+
+### Response
+
+Returns the contact object.
+
+### Example Request
+
+```bash cURL
+curl -X GET https://api.cossistant.com/v1/contacts/01JG123456789ABCDEFGHIJKQ \
+  -H "X-Public-Key: pk_test_abc123..."
+```
+
+### Example Response
+
+```json 200 - Success
+{
+  "id": "01JG123456789ABCDEFGHIJKQ",
+  "externalId": "user_12345",
+  "name": "John Doe",
+  "email": "john.doe@example.com",
+  "image": "https://example.com/avatar.png",
+  "metadata": {
+    "plan": "premium",
+    "role": "admin"
+  },
+  "contactOrganizationId": null,
+  "websiteId": "01JG000000000000000000001",
+  "organizationId": "01JG000000000000000000002",
+  "userId": null,
+  "createdAt": "2024-01-15T10:30:00.000Z",
+  "updatedAt": "2024-01-15T10:30:00.000Z"
+}
+```
+
+---
+
+## Update Contact
+
+<Card title="PATCH /contacts/:id" icon="user-edit">
+Update an existing contact.
+</Card>
+
+### Endpoint
+
+```
+PATCH https://api.cossistant.com/v1/contacts/{id}
+```
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  The contact ID (ULID)
+</ParamField>
+
+### Request Body
+
+All fields are optional. Only provided fields will be updated.
+
+<ParamField body="externalId" type="string">
+  External identifier
+</ParamField>
+
+<ParamField body="name" type="string">
+  Contact's name
+</ParamField>
+
+<ParamField body="email" type="string">
+  Contact's email
+</ParamField>
+
+<ParamField body="image" type="string">
+  Avatar URL
+</ParamField>
+
+<ParamField body="metadata" type="object">
+  Custom metadata (replaces existing metadata)
+</ParamField>
+
+<ParamField body="contactOrganizationId" type="string | null">
+  Contact organization ID (set to `null` to remove)
+</ParamField>
+
+### Response
+
+Returns the updated contact object.
+
+### Example Request
+
+```bash cURL
+curl -X PATCH https://api.cossistant.com/v1/contacts/01JG123456789ABCDEFGHIJKQ \
+  -H "X-Public-Key: pk_test_abc123..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "John A. Doe",
+    "metadata": {
+      "plan": "enterprise",
+      "role": "owner"
+    }
+  }'
+```
+
+### Example Response
+
+```json 200 - Success
+{
+  "id": "01JG123456789ABCDEFGHIJKQ",
+  "externalId": "user_12345",
+  "name": "John A. Doe",
+  "email": "john.doe@example.com",
+  "image": "https://example.com/avatar.png",
+  "metadata": {
+    "plan": "enterprise",
+    "role": "owner"
+  },
+  "contactOrganizationId": null,
+  "websiteId": "01JG000000000000000000001",
+  "organizationId": "01JG000000000000000000002",
+  "userId": null,
+  "createdAt": "2024-01-15T10:30:00.000Z",
+  "updatedAt": "2024-01-15T11:15:00.000Z"
+}
+```
+
+---
+
+## Update Contact Metadata
+
+<Card title="PATCH /contacts/:id/metadata" icon="database">
+Merge metadata into a contact's profile without replacing other fields.
+</Card>
+
+### Endpoint
+
+```
+PATCH https://api.cossistant.com/v1/contacts/{id}/metadata
+```
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  The contact ID (ULID)
+</ParamField>
+
+### Request Body
+
+<ParamField body="metadata" type="object" required>
+  Metadata to merge into the contact's profile. Existing keys are updated, new keys are added, other keys remain unchanged.
+</ParamField>
+
+### Response
+
+Returns the updated contact object.
+
+### Example Request
+
+```bash cURL
+curl -X PATCH https://api.cossistant.com/v1/contacts/01JG123456789ABCDEFGHIJKQ/metadata \
+  -H "X-Public-Key: pk_test_abc123..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "metadata": {
+      "lastLogin": "2024-01-15T11:30:00Z",
+      "accountStatus": "active"
+    }
+  }'
+```
+
+### Example Response
+
+```json 200 - Success
+{
+  "id": "01JG123456789ABCDEFGHIJKQ",
+  "externalId": "user_12345",
+  "name": "John A. Doe",
+  "email": "john.doe@example.com",
+  "image": "https://example.com/avatar.png",
+  "metadata": {
+    "plan": "enterprise",
+    "role": "owner",
+    "lastLogin": "2024-01-15T11:30:00Z",
+    "accountStatus": "active"
+  },
+  "contactOrganizationId": null,
+  "websiteId": "01JG000000000000000000001",
+  "organizationId": "01JG000000000000000000002",
+  "userId": null,
+  "createdAt": "2024-01-15T10:30:00.000Z",
+  "updatedAt": "2024-01-15T11:30:00.000Z"
+}
+```
+
+---
+
+## Delete Contact
+
+<Card title="DELETE /contacts/:id" icon="user-minus">
+Soft delete a contact.
+</Card>
+
+### Endpoint
+
+```
+DELETE https://api.cossistant.com/v1/contacts/{id}
+```
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  The contact ID (ULID)
+</ParamField>
+
+### Response
+
+Returns `204 No Content` on success.
+
+### Example Request
+
+```bash cURL
+curl -X DELETE https://api.cossistant.com/v1/contacts/01JG123456789ABCDEFGHIJKQ \
+  -H "X-Public-Key: pk_test_abc123..."
+```
+
+---
+
+## Contact Organizations
+
+Contact organizations represent companies or groups that contacts belong to.
+
+### Create Contact Organization
+
+<Card title="POST /contacts/organizations" icon="building">
+Create a new contact organization.
+</Card>
+
+#### Endpoint
+
+```
+POST https://api.cossistant.com/v1/contacts/organizations
+```
+
+#### Request Body
+
+<ParamField body="name" type="string" required>
+  The organization name
+</ParamField>
+
+<ParamField body="externalId" type="string">
+  External identifier (e.g., from your CRM)
+</ParamField>
+
+<ParamField body="domain" type="string">
+  The organization's domain
+</ParamField>
+
+<ParamField body="description" type="string">
+  Description of the organization
+</ParamField>
+
+<ParamField body="metadata" type="object">
+  Custom metadata
+</ParamField>
+
+#### Response
+
+<ResponseField name="id" type="string">
+  Unique organization ID (ULID)
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Organization name
+</ResponseField>
+
+<ResponseField name="externalId" type="string | null">
+  External identifier
+</ResponseField>
+
+<ResponseField name="domain" type="string | null">
+  Organization domain
+</ResponseField>
+
+<ResponseField name="description" type="string | null">
+  Description
+</ResponseField>
+
+<ResponseField name="metadata" type="object | null">
+  Custom metadata
+</ResponseField>
+
+<ResponseField name="websiteId" type="string">
+  Website ID
+</ResponseField>
+
+<ResponseField name="organizationId" type="string">
+  Organization ID
+</ResponseField>
+
+<ResponseField name="createdAt" type="string">
+  ISO 8601 timestamp
+</ResponseField>
+
+<ResponseField name="updatedAt" type="string">
+  ISO 8601 timestamp
+</ResponseField>
+
+#### Example Request
+
+```bash cURL
+curl -X POST https://api.cossistant.com/v1/contacts/organizations \
+  -H "X-Public-Key: pk_test_abc123..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Acme Corporation",
+    "externalId": "org_12345",
+    "domain": "acme.com",
+    "description": "A leading provider of enterprise solutions",
+    "metadata": {
+      "industry": "technology",
+      "employees": 500
+    }
+  }'
+```
+
+#### Example Response
+
+```json 201 - Created
+{
+  "id": "01JG123456789ABCDEFGHIJKS",
+  "name": "Acme Corporation",
+  "externalId": "org_12345",
+  "domain": "acme.com",
+  "description": "A leading provider of enterprise solutions",
+  "metadata": {
+    "industry": "technology",
+    "employees": 500
+  },
+  "websiteId": "01JG000000000000000000001",
+  "organizationId": "01JG000000000000000000002",
+  "createdAt": "2024-01-15T12:00:00.000Z",
+  "updatedAt": "2024-01-15T12:00:00.000Z"
+}
+```
+
+### Get Contact Organization
+
+```
+GET https://api.cossistant.com/v1/contacts/organizations/{id}
+```
+
+Retrieve a contact organization by ID.
+
+### Update Contact Organization
+
+```
+PATCH https://api.cossistant.com/v1/contacts/organizations/{id}
+```
+
+Update an existing contact organization. All fields are optional.
+
+### Delete Contact Organization
+
+```
+DELETE https://api.cossistant.com/v1/contacts/organizations/{id}
+```
+
+Soft delete a contact organization. Returns `204 No Content` on success.
+
+---
+
+## Error Responses
+
+```json 400 - Bad Request
+{
+  "error": "BAD_REQUEST",
+  "message": "Either externalId or email is required"
+}
+```
+
+```json 401 - Unauthorized
+{
+  "error": "UNAUTHORIZED",
+  "message": "Invalid API key"
+}
+```
+
+```json 404 - Not Found
+{
+  "error": "NOT_FOUND",
+  "message": "Contact not found"
+}
+```
+
+```json 500 - Internal Server Error
+{
+  "error": "INTERNAL_SERVER_ERROR",
+  "message": "Failed to create contact"
+}
+```

@@ -1,0 +1,238 @@
+---
+title: Self-Hosting Guide
+description: Deploy Cossistant on your own infrastructure
+---
+
+## Architecture Overview
+
+Cossistant uses a microservices architecture with the following components:
+
+- **API Service**: Main API server handling HTTP requests (Bun runtime)
+- **Workers Service**: Background job processing and async tasks (Bun runtime)
+- **PostgreSQL**: Primary database with pgvector extension for embeddings
+- **Redis**: Caching and session storage
+- **S3-Compatible Storage**: File and asset storage
+- **QStash**: Queue service for job scheduling
+- **Tinybird**: Analytics and usage tracking
+
+## System Requirements
+
+### Minimum Requirements
+
+- **CPU**: 2 cores
+- **RAM**: 4GB
+- **Storage**: 20GB SSD
+- **Node.js**: 20.x or higher
+- **Bun**: Latest version
+
+### Recommended Requirements
+
+- **CPU**: 4+ cores
+- **RAM**: 8GB+
+- **Storage**: 50GB+ SSD
+- **Network**: Stable connection for external services
+
+## External Services
+
+Cossistant requires the following external services:
+
+### Required
+
+- **PostgreSQL 17** with pgvector extension
+- **Redis 7+**
+- **S3-compatible storage** (AWS S3, MinIO, R2, etc.)
+- **QStash** (Upstash) - Message queue and job scheduling
+- **Resend** - Email delivery
+
+### Optional
+
+- **OAuth Providers** - Google, GitHub for authentication
+- **Tinybird** - Analytics platform
+- **Firecrawl** - Web scraping service
+- **OpenRouter** - AI model access
+- **Polar** - Payment and subscription management
+
+## Setup Steps
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/yourusername/cossistant.git
+cd cossistant
+```
+
+### 2. Install Dependencies
+
+```bash
+# Install Bun if not already installed
+curl -fsSL https://bun.sh/install | bash
+
+# Install project dependencies
+bun install
+```
+
+### 3. Set Up Infrastructure
+
+#### Using Docker Compose (Recommended for Development)
+
+```bash
+docker compose up -d
+```
+
+This starts PostgreSQL with pgvector and Redis locally.
+
+#### Manual Setup
+
+Install and configure PostgreSQL 17 with the pgvector extension and Redis 7+.
+
+### 4. Configure Environment Variables
+
+Copy the example environment file and configure it:
+
+```bash
+cp .env.example .env
+```
+
+See the [Environment Variables](/deployment/environment-variables) page for detailed configuration.
+
+### 5. Run Database Migrations
+
+```bash
+bun run migrate
+```
+
+### 6. Build the Application
+
+```bash
+# Build all packages
+bunx turbo run build
+```
+
+### 7. Start the Services
+
+#### Development Mode
+
+```bash
+# Start API server
+bun run apps/api/src/index.ts
+
+# Start workers (in another terminal)
+bun run apps/workers/src/index.ts
+```
+
+#### Production Mode
+
+See the [Docker Deployment](/deployment/docker) guide for containerized production deployment.
+
+## Health Checks
+
+Verify your deployment:
+
+```bash
+# Check API health
+curl http://localhost:8787/health
+
+# Check database connection
+psql -h localhost -U postgres -d cossistant -c "SELECT version();"
+
+# Check Redis connection
+redis-cli ping
+```
+
+## Security Considerations
+
+<Warning>
+**Critical Security Settings**
+
+- Generate strong random values for `BETTER_AUTH_SECRET` and `API_KEY_SECRET`
+- Never commit `.env` files to version control
+- Use HTTPS in production for `BETTER_AUTH_URL` and `PUBLIC_APP_URL`
+- Restrict database and Redis access to application servers only
+- Rotate API keys and secrets regularly
+- Enable OAuth providers for production authentication
+</Warning>
+
+## Monitoring
+
+### Application Logs
+
+Both API and Workers services output structured logs to stdout.
+
+### Database Monitoring
+
+Monitor PostgreSQL performance:
+
+```sql
+-- Check active connections
+SELECT count(*) FROM pg_stat_activity;
+
+-- Check database size
+SELECT pg_size_pretty(pg_database_size('cossistant'));
+```
+
+### Redis Monitoring
+
+```bash
+# Monitor Redis metrics
+redis-cli info stats
+
+# Check memory usage
+redis-cli info memory
+```
+
+## Backup and Recovery
+
+### Database Backups
+
+```bash
+# Create backup
+pg_dump -h localhost -U postgres cossistant > backup_$(date +%Y%m%d).sql
+
+# Restore backup
+psql -h localhost -U postgres cossistant < backup_20260313.sql
+```
+
+### Redis Backups
+
+Redis automatically creates RDB snapshots. Configure backup frequency in `redis.conf`.
+
+## Troubleshooting
+
+### Common Issues
+
+**API won't start**
+- Verify all required environment variables are set
+- Check database connectivity
+- Ensure port 8787 is available
+
+**Database connection errors**
+- Verify PostgreSQL is running: `docker compose ps`
+- Check credentials in `.env`
+- Ensure pgvector extension is installed
+
+**Worker jobs not processing**
+- Verify QStash configuration
+- Check QStash signing keys are correct
+- Review worker logs for errors
+
+## Scaling
+
+### Horizontal Scaling
+
+- Run multiple API instances behind a load balancer
+- Run multiple Worker instances for job processing
+- Use managed PostgreSQL with read replicas
+- Use Redis Cluster for distributed caching
+
+### Vertical Scaling
+
+- Increase CPU/RAM for database server
+- Optimize PostgreSQL configuration for your workload
+- Tune Redis memory limits and eviction policies
+
+## Next Steps
+
+- Configure [Environment Variables](/deployment/environment-variables)
+- Set up [Docker Deployment](/deployment/docker)
+- Review security best practices
+- Set up monitoring and alerting

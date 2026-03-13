@@ -1,0 +1,739 @@
+---
+title: Realtime Events
+description: Subscribe to and emit real-time events over WebSocket connections
+---
+
+## Overview
+
+Realtime events enable instant bidirectional communication between clients and the Cossistant platform. Events are sent over WebSocket connections and cover conversations, messages, typing indicators, AI agent activity, and more.
+
+## Event Structure
+
+All events follow this structure:
+
+```json
+{
+  "type": "eventType",
+  "payload": {
+    "websiteId": "web_123",
+    "organizationId": "org_456",
+    "visitorId": "visitor_789",
+    "userId": null,
+    // Event-specific fields
+  }
+}
+```
+
+<ResponseField name="type" type="string" required>
+  The event type identifier
+</ResponseField>
+
+<ResponseField name="payload" type="object" required>
+  Event data, always includes `websiteId`, `organizationId`, `visitorId`, and `userId`
+</ResponseField>
+
+## Client-Sendable Events
+
+These events can be sent by clients to the server:
+
+### conversationTyping
+
+Notify others that a user is typing in a conversation.
+
+```json
+{
+  "type": "conversationTyping",
+  "payload": {
+    "conversationId": "conv_123",
+    "isTyping": true,
+    "visitorId": "visitor_789",
+    "visitorPreview": "Hello, I need help with..."
+  }
+}
+```
+
+<ResponseField name="conversationId" type="string" required>
+  ID of the conversation
+</ResponseField>
+
+<ResponseField name="isTyping" type="boolean" required>
+  Whether the user is currently typing
+</ResponseField>
+
+<ResponseField name="visitorId" type="string">
+  Visitor ID (optional, enriched by server from connection context)
+</ResponseField>
+
+<ResponseField name="visitorPreview" type="string">
+  Preview of what the visitor is typing (max 2000 characters)
+</ResponseField>
+
+<ResponseField name="userId" type="string">
+  User ID (enriched by server from connection context)
+</ResponseField>
+
+<ResponseField name="aiAgentId" type="string">
+  AI agent ID (null for client-sent events)
+</ResponseField>
+
+<Note>
+Visitors can only send typing events for their own conversations. Dashboard users can send typing events for any conversation on their website.
+</Note>
+
+### conversationSeen
+
+Mark a conversation as seen by the current user/visitor.
+
+```json
+{
+  "type": "conversationSeen",
+  "payload": {
+    "conversationId": "conv_123"
+  }
+}
+```
+
+<ResponseField name="conversationId" type="string" required>
+  ID of the conversation to mark as seen
+</ResponseField>
+
+<ResponseField name="actorType" type="enum">
+  Who marked it as seen: `visitor`, `user`, or `ai_agent` (enriched by server)
+</ResponseField>
+
+<ResponseField name="actorId" type="string">
+  ID of the actor who marked it as seen (enriched by server)
+</ResponseField>
+
+<ResponseField name="lastSeenAt" type="string">
+  ISO 8601 timestamp (enriched by server)
+</ResponseField>
+
+## Server-Only Events
+
+These events are emitted by the server and cannot be sent by clients:
+
+### Connection Events
+
+#### userConnected
+
+Emitted when a dashboard user connects.
+
+```json
+{
+  "type": "userConnected",
+  "payload": {
+    "connectionId": "conn_123",
+    "userId": "user_456",
+    "websiteId": "web_789",
+    "organizationId": "org_012",
+    "visitorId": null
+  }
+}
+```
+
+#### userDisconnected
+
+Emitted when a dashboard user disconnects.
+
+#### visitorConnected
+
+Emitted when a visitor connects.
+
+```json
+{
+  "type": "visitorConnected",
+  "payload": {
+    "connectionId": "conn_123",
+    "visitorId": "visitor_456",
+    "websiteId": "web_789",
+    "organizationId": "org_012",
+    "userId": null
+  }
+}
+```
+
+#### visitorDisconnected
+
+Emitted when a visitor disconnects.
+
+### Conversation Events
+
+#### conversationCreated
+
+Emitted when a new conversation is created.
+
+```json
+{
+  "type": "conversationCreated",
+  "payload": {
+    "conversationId": "conv_123",
+    "websiteId": "web_456",
+    "organizationId": "org_789",
+    "visitorId": "visitor_012",
+    "userId": null,
+    "conversation": {
+      "id": "conv_123",
+      "status": "open",
+      "priority": "normal",
+      "createdAt": "2024-01-15T10:30:00Z"
+      // ... full conversation object
+    },
+    "header": {
+      // Conversation header metadata
+    }
+  }
+}
+```
+
+<ResponseField name="conversation" type="object">
+  Full conversation object with all fields
+</ResponseField>
+
+<ResponseField name="header" type="object">
+  Conversation header with metadata for list views
+</ResponseField>
+
+#### conversationUpdated
+
+Emitted when conversation metadata changes (title, sentiment, status, etc.).
+
+```json
+{
+  "type": "conversationUpdated",
+  "payload": {
+    "conversationId": "conv_123",
+    "websiteId": "web_456",
+    "organizationId": "org_789",
+    "visitorId": "visitor_012",
+    "userId": null,
+    "aiAgentId": "agent_345",
+    "updates": {
+      "title": "Help with billing",
+      "sentiment": "neutral",
+      "sentimentConfidence": 0.85,
+      "status": "open",
+      "priority": "high",
+      "escalatedAt": "2024-01-15T10:35:00Z",
+      "escalationReason": "Customer requested human support"
+    }
+  }
+}
+```
+
+<ResponseField name="updates" type="object">
+  Object containing the fields that were updated (only changed fields are included)
+</ResponseField>
+
+#### conversationEventCreated
+
+Emitted when a conversation event occurs (assigned, status changed, etc.).
+
+```json
+{
+  "type": "conversationEventCreated",
+  "payload": {
+    "conversationId": "conv_123",
+    "websiteId": "web_456",
+    "organizationId": "org_789",
+    "visitorId": "visitor_012",
+    "userId": null,
+    "aiAgentId": null,
+    "event": {
+      "id": "evt_789",
+      "conversationId": "conv_123",
+      "organizationId": "org_789",
+      "type": "assigned",
+      "actorUserId": "user_456",
+      "targetUserId": "user_789",
+      "message": "Assigned to John Doe",
+      "createdAt": "2024-01-15T10:32:00Z"
+    }
+  }
+}
+```
+
+**Event Types:**
+- `assigned` - Conversation assigned to a user
+- `unassigned` - Conversation unassigned
+- `status_changed` - Status changed
+- `priority_changed` - Priority changed
+- `resolved` - Conversation resolved
+- `reopened` - Conversation reopened
+- `participant_joined` - User joined conversation
+- `participant_left` - User left conversation
+- `tag_added` - Tag added to conversation
+- `tag_removed` - Tag removed from conversation
+- `visitor_identified` - Visitor was identified
+- `visitor_blocked` - Visitor was blocked
+- `visitor_unblocked` - Visitor was unblocked
+- `ai_paused` - AI agent paused
+- `ai_resumed` - AI agent resumed
+
+### Timeline Events
+
+#### timelineItemCreated
+
+Emitted when a new timeline item (message, event, tool call) is created.
+
+```json
+{
+  "type": "timelineItemCreated",
+  "payload": {
+    "conversationId": "conv_123",
+    "websiteId": "web_456",
+    "organizationId": "org_789",
+    "visitorId": "visitor_012",
+    "userId": null,
+    "item": {
+      "id": "item_345",
+      "conversationId": "conv_123",
+      "organizationId": "org_789",
+      "type": "message",
+      "visibility": "public",
+      "text": "Hello, I need help!",
+      "parts": [
+        {
+          "type": "text",
+          "text": "Hello, I need help!"
+        }
+      ],
+      "userId": null,
+      "visitorId": "visitor_012",
+      "aiAgentId": null,
+      "createdAt": "2024-01-15T10:30:00Z",
+      "deletedAt": null
+    }
+  }
+}
+```
+
+<ResponseField name="item" type="object">
+  The timeline item that was created
+</ResponseField>
+
+<ResponseField name="item.type" type="enum">
+  Timeline item type: `message`, `event`, `identification`, or `tool`
+</ResponseField>
+
+<ResponseField name="item.visibility" type="enum">
+  Visibility: `public` (visible to visitors) or `private` (dashboard only)
+</ResponseField>
+
+<ResponseField name="item.parts" type="array">
+  Array of content parts (text, images, attachments, tool calls)
+</ResponseField>
+
+<Note>
+Timeline items with `visibility: "private"` are never sent to visitor connections.
+</Note>
+
+#### timelineItemUpdated
+
+Emitted when a timeline item is updated (e.g., parts added).
+
+```json
+{
+  "type": "timelineItemUpdated",
+  "payload": {
+    "conversationId": "conv_123",
+    "websiteId": "web_456",
+    "organizationId": "org_789",
+    "visitorId": "visitor_012",
+    "userId": null,
+    "item": {
+      "id": "item_345",
+      "parts": [
+        {
+          "type": "text",
+          "text": "Updated message text"
+        },
+        {
+          "type": "tool_call",
+          "toolCallId": "call_123",
+          "toolName": "search_knowledge_base",
+          "state": "result"
+        }
+      ]
+      // ... other fields
+    }
+  }
+}
+```
+
+#### timelineItemPartUpdated
+
+Emitted for granular updates to a specific part (e.g., tool state change).
+
+```json
+{
+  "type": "timelineItemPartUpdated",
+  "payload": {
+    "conversationId": "conv_123",
+    "websiteId": "web_456",
+    "organizationId": "org_789",
+    "visitorId": "visitor_012",
+    "userId": null,
+    "timelineItemId": "item_345",
+    "partIndex": 1,
+    "part": {
+      "type": "tool_call",
+      "toolCallId": "call_123",
+      "toolName": "search_knowledge_base",
+      "state": "result",
+      "result": "Found 3 relevant articles"
+    }
+  }
+}
+```
+
+<ResponseField name="partIndex" type="number">
+  Zero-based index of the part in the `parts` array
+</ResponseField>
+
+<ResponseField name="part" type="object">
+  The updated part data
+</ResponseField>
+
+### AI Agent Events
+
+#### aiAgentProcessingStarted
+
+Emitted when an AI agent starts processing a message.
+
+```json
+{
+  "type": "aiAgentProcessingStarted",
+  "payload": {
+    "conversationId": "conv_123",
+    "websiteId": "web_456",
+    "organizationId": "org_789",
+    "visitorId": "visitor_012",
+    "userId": null,
+    "aiAgentId": "agent_345",
+    "workflowRunId": "run_678",
+    "triggerMessageId": "item_901",
+    "phase": "initializing",
+    "audience": "dashboard"
+  }
+}
+```
+
+<ResponseField name="workflowRunId" type="string">
+  Unique ID for this workflow execution
+</ResponseField>
+
+<ResponseField name="triggerMessageId" type="string">
+  ID of the message that triggered this workflow
+</ResponseField>
+
+<ResponseField name="audience" type="enum">
+  `all` (sent to both dashboard and widget) or `dashboard` (dashboard only)
+</ResponseField>
+
+#### aiAgentDecisionMade
+
+Emitted when the AI agent decides whether to respond.
+
+```json
+{
+  "type": "aiAgentDecisionMade",
+  "payload": {
+    "conversationId": "conv_123",
+    "websiteId": "web_456",
+    "organizationId": "org_789",
+    "visitorId": "visitor_012",
+    "userId": null,
+    "aiAgentId": "agent_345",
+    "workflowRunId": "run_678",
+    "shouldAct": true,
+    "reason": "Visitor asked a question about pricing",
+    "mode": "respond_to_visitor",
+    "audience": "all"
+  }
+}
+```
+
+<ResponseField name="shouldAct" type="boolean">
+  Whether the AI decided to take action
+</ResponseField>
+
+<ResponseField name="mode" type="enum">
+  Response mode: `respond_to_visitor`, `respond_to_command`, or `background_only`
+</ResponseField>
+
+<Note>
+When `shouldAct: true`, the audience is typically `all` (widget shows typing indicator). When `shouldAct: false`, audience is `dashboard` (visitor doesn't know AI considered responding).
+</Note>
+
+#### aiAgentProcessingProgress
+
+Emitted during AI processing to show progress.
+
+```json
+{
+  "type": "aiAgentProcessingProgress",
+  "payload": {
+    "conversationId": "conv_123",
+    "websiteId": "web_456",
+    "organizationId": "org_789",
+    "visitorId": "visitor_012",
+    "userId": null,
+    "aiAgentId": "agent_345",
+    "workflowRunId": "run_678",
+    "phase": "tool-executing",
+    "message": "Searching knowledge base...",
+    "tool": {
+      "toolCallId": "call_123",
+      "toolName": "search_knowledge_base",
+      "state": "partial"
+    },
+    "audience": "all"
+  }
+}
+```
+
+<ResponseField name="phase" type="string">
+  Current phase: `thinking`, `searching`, `tool-executing`, `generating`, etc.
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Human-readable progress message
+</ResponseField>
+
+<ResponseField name="tool" type="object">
+  Tool execution details (when phase is tool-related)
+</ResponseField>
+
+<ResponseField name="tool.state" type="enum">
+  Tool state: `partial` (executing), `result` (completed), or `error` (failed)
+</ResponseField>
+
+#### aiAgentProcessingCompleted
+
+Emitted when AI processing finishes.
+
+```json
+{
+  "type": "aiAgentProcessingCompleted",
+  "payload": {
+    "conversationId": "conv_123",
+    "websiteId": "web_456",
+    "organizationId": "org_789",
+    "visitorId": "visitor_012",
+    "userId": null,
+    "aiAgentId": "agent_345",
+    "workflowRunId": "run_678",
+    "status": "success",
+    "action": "Sent message to visitor",
+    "reason": null,
+    "audience": "all"
+  }
+}
+```
+
+<ResponseField name="status" type="enum">
+  Completion status: `success`, `skipped`, `cancelled`, or `error`
+</ResponseField>
+
+<ResponseField name="action" type="string">
+  Description of action taken (when status is `success`)
+</ResponseField>
+
+<ResponseField name="reason" type="string">
+  Reason for skip/cancel/error
+</ResponseField>
+
+### Visitor Events
+
+#### visitorIdentified
+
+Emitted when a visitor is identified with additional information.
+
+```json
+{
+  "type": "visitorIdentified",
+  "payload": {
+    "visitorId": "visitor_012",
+    "websiteId": "web_456",
+    "organizationId": "org_789",
+    "userId": null,
+    "visitor": {
+      "id": "visitor_012",
+      "email": "user@example.com",
+      "name": "John Doe",
+      "customAttributes": {
+        "plan": "premium"
+      }
+    }
+  }
+}
+```
+
+### Knowledge Base Events
+
+#### crawlStarted, crawlProgress, crawlCompleted, crawlFailed
+
+Emitted during website crawling for knowledge base updates (dashboard only).
+
+```json
+{
+  "type": "crawlProgress",
+  "payload": {
+    "linkSourceId": "src_123",
+    "websiteId": "web_456",
+    "organizationId": "org_789",
+    "visitorId": null,
+    "userId": null,
+    "url": "https://example.com",
+    "page": {
+      "url": "https://example.com/docs/api",
+      "title": "API Documentation",
+      "status": "completed",
+      "sizeBytes": 45000
+    },
+    "completedCount": 15,
+    "totalCount": 100
+  }
+}
+```
+
+#### trainingStarted, trainingProgress, trainingCompleted, trainingFailed
+
+Emitted during AI agent training (dashboard only).
+
+```json
+{
+  "type": "trainingProgress",
+  "payload": {
+    "aiAgentId": "agent_345",
+    "websiteId": "web_456",
+    "organizationId": "org_789",
+    "visitorId": null,
+    "userId": null,
+    "processedItems": 45,
+    "totalItems": 100,
+    "percentage": 45,
+    "currentItem": {
+      "id": "kb_678",
+      "title": "Product Features",
+      "type": "article"
+    }
+  }
+}
+```
+
+## Event Broadcasting
+
+Events are broadcast to different audiences based on the event type:
+
+### Website Broadcasting
+
+Events broadcast to all dashboard users connected to a website:
+- Connection events (with `excludeConnection` to avoid echoing back)
+- Conversation events
+- Timeline events
+- AI agent events
+- Knowledge base events (dashboard only)
+- Training events (dashboard only)
+
+### Visitor Broadcasting
+
+Events broadcast to all connections for a specific visitor:
+- Conversation events for their conversations
+- Timeline events (only `visibility: "public"` items)
+- Typing indicators
+- Seen status updates
+- AI agent events (only `audience: "all"` events)
+
+### Connection Broadcasting
+
+Events sent to a specific connection:
+- Direct messages
+- Error responses
+- Connection acknowledgments
+
+## Event Filtering
+
+The server automatically filters events:
+
+1. **Audience filtering**: Events with `audience: "dashboard"` never reach visitor connections
+2. **Visibility filtering**: Timeline items with `visibility: "private"` never reach visitor connections
+3. **Tool visibility**: Tool calls are only sent to visitors when explicitly marked `visibility: "public"`
+4. **Dashboard controls**: Certain updates (like `aiPausedUntil`) are never sent to visitors
+
+## Subscribe Patterns
+
+### React Hook
+
+```jsx
+import { useRealtime } from '@cossistant/react';
+
+function ConversationView({ conversationId, websiteId, visitorId }) {
+  const { send, isConnected } = useRealtime({
+    events: {
+      timelineItemCreated: (data) => {
+        if (data.conversationId === conversationId) {
+          // Handle new message
+        }
+      },
+      conversationTyping: (data) => {
+        if (data.conversationId === conversationId) {
+          // Show typing indicator
+        }
+      },
+      aiAgentProcessingProgress: (data, meta) => {
+        if (data.conversationId === conversationId) {
+          // Show AI progress: data.phase, data.message
+        }
+      }
+    },
+    websiteId,
+    visitorId,
+    context: { conversationId }
+  });
+
+  const sendTyping = (isTyping) => {
+    send({
+      type: 'conversationTyping',
+      payload: { conversationId, isTyping }
+    });
+  };
+
+  return /* ... */;
+}
+```
+
+### Core Client
+
+```javascript
+import { RealtimeClient } from '@cossistant/core';
+
+const client = new RealtimeClient({ wsUrl: 'wss://api.cossistant.com/ws' });
+
+client.subscribe((event) => {
+  switch (event.type) {
+    case 'timelineItemCreated':
+      handleNewMessage(event.payload);
+      break;
+    case 'conversationTyping':
+      handleTyping(event.payload);
+      break;
+    case 'aiAgentProcessingProgress':
+      handleAIProgress(event.payload);
+      break;
+  }
+});
+
+client.connect({
+  kind: 'visitor',
+  visitorId: 'visitor_123',
+  publicKey: 'pk_live_...'
+});
+```
+
+## Next Steps
+
+- Learn about [WebSocket Connection](/api/websocket-connection) setup
+- Explore [Conversation API](/api/conversations) for REST operations
+- Check out [Message API](/api/messages) for sending messages

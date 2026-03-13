@@ -1,0 +1,291 @@
+---
+title: Contribution Guidelines
+description: Learn our code standards, commit conventions, PR process, and testing requirements.
+---
+
+This guide covers the standards and processes for contributing code to Cossistant.
+
+<Note>
+  Cossistant is currently in **early development phase**. We're not accepting public pull requests yet as the core architecture is still evolving rapidly. However, you can still contribute by opening issues, sharing feedback, and helping shape the roadmap.
+</Note>
+
+## What You Can Do Now
+
+- **Star the repo** to support the project
+- **Open issues** to report bugs, suggest features, or discuss implementation ideas
+- **Help shape the roadmap** - We read every issue and discussion
+- **Share feedback** on the API, SDK structure, or early docs
+
+## Code Style
+
+Cossistant uses automated tooling to maintain consistent code style:
+
+- **Biome** - Fast linter and formatter for JavaScript/TypeScript
+- **Ultracite** - Additional code quality checks
+- **lint-staged** - Runs checks on staged files via Husky pre-commit hooks
+
+### Auto-fix Issues
+
+Before committing, run:
+
+```bash
+bun run fix
+```
+
+This command will automatically fix most linting and formatting issues across the entire monorepo.
+
+### Manual Checks
+
+```bash
+# Check code quality without auto-fixing
+bun run check
+
+# Verify TypeScript types
+bun run check-types
+
+# Check documentation links
+bun run docs:links
+```
+
+## Commit Conventions
+
+We follow [Conventional Commits](https://www.conventionalcommits.org/) for all commit messages. This helps maintain a clear project history and enables automated changelog generation.
+
+<Note>
+  Commit messages are enforced via Husky pre-commit hooks using `@commitlint/cli` and `@commitlint/config-conventional`.
+</Note>
+
+### Commit Format
+
+```
+<type>: <subject>
+```
+
+### Types
+
+- **`feat:`** - New features
+- **`fix:`** - Bug fixes
+- **`docs:`** - Documentation changes
+- **`chore:`** - Maintenance tasks
+- **`refactor:`** - Code refactoring
+- **`test:`** - Test updates
+- **`style:`** - Code style changes (formatting, missing semicolons, etc.)
+- **`perf:`** - Performance improvements
+- **`ci:`** - CI/CD pipeline changes
+
+### Examples
+
+```bash
+feat: add message reactions to timeline items
+fix: resolve WebSocket reconnection race condition
+docs: update quickstart guide with new installation steps
+chore: upgrade dependencies to latest versions
+refactor: extract shared validation logic to utils
+test: add unit tests for message store
+```
+
+## Pull Request Process
+
+<Note>
+  This section describes our future PR process. We'll implement these guidelines when we begin accepting external contributions.
+</Note>
+
+### Before Opening a PR
+
+Run the smallest set of checks that matches your change:
+
+```bash
+# Auto-fix linting issues across the repo
+bun run fix
+
+# Verify TypeScript types
+bun run check-types
+
+# Run docs link checks for documentation edits
+bun run docs:links
+
+# Run tests in the package or app you changed
+cd packages/react
+bun test
+```
+
+### PR Checklist
+
+Before you open or merge a PR:
+
+1. **Use a clear Conventional Commits title** such as `fix: tighten llms route indexing headers`
+2. **Explain what changed, why it changed**, and any follow-up work still pending
+3. **Link the related issue**, discussion, or support thread when there is one
+4. **Add screenshots or recordings** for UI changes
+5. **Add a changeset** when you touch published packages such as `@cossistant/react` or `@cossistant/next`
+6. **Mention any environment variables, migrations, or manual QA steps** reviewers need
+
+### PR Description Template
+
+```markdown
+## What
+
+[Brief description of the changes]
+
+## Why
+
+[Explanation of why this change is needed]
+
+## How
+
+[Technical details about the implementation]
+
+## Testing
+
+- [ ] Unit tests added/updated
+- [ ] Integration tests added/updated
+- [ ] Manual testing completed
+
+## Screenshots/Recordings
+
+[Add relevant media for UI changes]
+
+## Related Issues
+
+Closes #[issue number]
+```
+
+## Testing Requirements
+
+Cossistant uses Bun's built-in test runner. Tests are colocated with source files using the `*.test.ts` naming convention.
+
+### Running Tests
+
+```bash
+# Run tests in a specific package
+cd packages/react
+bun test
+
+# Watch mode
+bun test --watch
+
+# Coverage report
+bun test --coverage
+```
+
+### Test Guidelines
+
+- Write tests for new features and bug fixes
+- Maintain or improve existing test coverage
+- Use descriptive test names that explain what is being tested
+- Group related tests using `describe` blocks
+- Mock external dependencies appropriately
+- Test edge cases and error conditions
+
+### Example Test Structure
+
+```typescript
+import { describe, test, expect } from "bun:test";
+import { myFunction } from "./my-function";
+
+describe("myFunction", () => {
+  test("should handle valid input", () => {
+    const result = myFunction("valid");
+    expect(result).toBe("expected");
+  });
+
+  test("should throw on invalid input", () => {
+    expect(() => myFunction("invalid")).toThrow();
+  });
+});
+```
+
+## Changesets
+
+For changes to published packages (`@cossistant/react`, `@cossistant/next`), you must add a changeset.
+
+### Creating a Changeset
+
+```bash
+bun run changeset
+```
+
+Follow the interactive prompts to:
+1. Select which packages are affected
+2. Choose the version bump type (major, minor, patch)
+3. Describe your changes for the changelog
+
+### Changeset Guidelines
+
+- **Major** - Breaking changes that require users to update their code
+- **Minor** - New features that are backward compatible
+- **Patch** - Bug fixes and small improvements
+
+The changeset description should focus on the impact to end users, not implementation details.
+
+### Example Changeset
+
+```yaml
+---
+"@cossistant/react": minor
+---
+
+Add support for message reactions in the Support component. You can now enable reactions by passing the `enableReactions` prop.
+```
+
+## Code Review Standards
+
+### As an Author
+
+- Keep PRs focused and reasonably sized
+- Respond to feedback promptly and professionally
+- Be open to suggestions and alternative approaches
+- Update the PR description if the scope changes
+
+### As a Reviewer
+
+- Review code for correctness, readability, and maintainability
+- Check that tests are comprehensive and meaningful
+- Verify that documentation is updated for user-facing changes
+- Be constructive and specific in feedback
+- Approve when you're confident the code is ready to merge
+
+## Quality Standards
+
+### Code Quality
+
+- Follow existing patterns and conventions in the codebase
+- Write self-documenting code with clear variable and function names
+- Add comments for complex logic or non-obvious decisions
+- Keep functions small and focused on a single responsibility
+- Avoid premature optimization - prioritize clarity first
+
+### Documentation
+
+- Update relevant documentation for user-facing changes
+- Include JSDoc comments for public APIs
+- Add inline comments for complex business logic
+- Keep README files up to date
+
+### Performance
+
+- Be mindful of bundle size for client-side packages
+- Avoid unnecessary re-renders in React components
+- Use appropriate data structures and algorithms
+- Profile before optimizing for performance
+
+## Our Commitment
+
+When we open contributions, we'll make it worth your time:
+
+- Clear contribution guidelines
+- Well-documented code
+- Modular architecture
+- Respect for your effort
+
+## Contact
+
+Have something important, urgent, or security-related?
+
+Email: **anthony@cossistant.com**
+
+## License
+
+Cossistant is licensed under **AGPL-3.0** for non-commercial use. For commercial use or deployments requiring a setup fee, please contact us for a commercial license at [anthony@cossistant.com](mailto:anthony@cossistant.com).
+
+By contributing to this project, you agree that your contributions will be licensed under the AGPL-3.0 license.

@@ -1,0 +1,348 @@
+---
+title: WebSocket Connection
+description: Establish and manage real-time WebSocket connections to receive live updates
+---
+
+## Overview
+
+Cossistant's WebSocket API enables real-time bidirectional communication between your application and the Cossistant platform. Use WebSockets to receive instant updates about conversations, messages, typing indicators, and other events.
+
+## Connection URL
+
+Connect to the WebSocket server at:
+
+```
+wss://api.cossistant.com/ws
+```
+
+## Authentication
+
+WebSocket connections support two authentication methods:
+
+### 1. Visitor Authentication (Public Key)
+
+For end-user widget connections:
+
+```javascript
+const ws = new WebSocket(
+  'wss://api.cossistant.com/ws?publicKey=YOUR_PUBLIC_KEY&visitorId=VISITOR_ID'
+);
+```
+
+**Query Parameters:**
+- `publicKey` - Your website's public API key
+- `visitorId` - Unique identifier for the visitor
+- `websiteId` (optional) - Specific website ID
+
+### 2. Session Authentication (Dashboard)
+
+For authenticated dashboard users:
+
+```javascript
+const ws = new WebSocket(
+  'wss://api.cossistant.com/ws?sessionToken=SESSION_TOKEN&websiteId=WEBSITE_ID'
+);
+```
+
+**Query Parameters:**
+- `sessionToken` - User session token from authentication
+- `websiteId` (optional) - Specific website to connect to
+
+<Note>
+For browser-based connections, authentication credentials must be passed as URL query parameters since browsers cannot set custom headers on WebSocket connections.
+</Note>
+
+## Connection Lifecycle
+
+### 1. Establishing Connection
+
+When you connect, the server responds with a connection confirmation:
+
+```json
+{
+  "type": "CONNECTION_ESTABLISHED",
+  "payload": {
+    "connectionId": "conn_1234567890_abc123"
+  }
+}
+```
+
+<ResponseField name="connectionId" type="string">
+  Unique identifier for this WebSocket connection
+</ResponseField>
+
+### 2. Connection Events
+
+After authentication, the server emits connection events:
+
+**For visitors:**
+```json
+{
+  "type": "visitorConnected",
+  "payload": {
+    "connectionId": "conn_1234567890_abc123",
+    "visitorId": "visitor_123",
+    "websiteId": "web_456",
+    "organizationId": "org_789",
+    "userId": null
+  }
+}
+```
+
+**For users:**
+```json
+{
+  "type": "userConnected",
+  "payload": {
+    "connectionId": "conn_1234567890_abc123",
+    "userId": "user_123",
+    "websiteId": "web_456",
+    "organizationId": "org_789",
+    "visitorId": null
+  }
+}
+```
+
+### 3. Disconnection
+
+When the connection closes, a disconnect event is broadcast:
+
+```json
+{
+  "type": "visitorDisconnected",
+  "payload": {
+    "connectionId": "conn_1234567890_abc123",
+    "visitorId": "visitor_123",
+    "websiteId": "web_456",
+    "organizationId": "org_789",
+    "userId": null
+  }
+}
+```
+
+## Heartbeat Mechanism
+
+### Ping-Pong
+
+To keep the connection alive and detect disconnections, implement a heartbeat:
+
+**Send ping:**
+```javascript
+ws.send('ping');
+```
+
+**Receive pong:**
+```javascript
+ws.onmessage = (event) => {
+  if (event.data === 'pong') {
+    // Connection is alive
+  }
+};
+```
+
+<Note>
+Send a ping every 15 seconds and expect a pong within 45 seconds. If no pong is received, the connection may be dead and should be recreated.
+</Note>
+
+### Presence Heartbeat
+
+To update user/visitor presence status:
+
+**Send presence ping:**
+```javascript
+ws.send('presence:ping');
+```
+
+The server responds with `pong` and updates the last seen timestamp in the database.
+
+## Reconnection Strategy
+
+Implement exponential backoff for reconnection attempts:
+
+```javascript
+let reconnectAttempt = 0;
+const maxDelay = 30000; // 30 seconds
+const baseDelay = 500; // 500ms
+
+function reconnect() {
+  const delay = Math.min(baseDelay * Math.pow(2, reconnectAttempt), maxDelay);
+  reconnectAttempt++;
+  
+  setTimeout(() => {
+    // Recreate WebSocket connection
+  }, delay);
+}
+```
+
+## Error Handling
+
+### Authentication Errors
+
+If authentication fails, the server sends an error and closes the connection:
+
+```json
+{
+  "error": "Authentication failed",
+  "message": "Invalid or missing authentication credentials",
+  "code": 401
+}
+```
+
+**Close Codes:**
+- `1008` - Policy violation (authentication failed)
+- `1011` - Internal server error
+- `4000` - Heartbeat timeout
+
+<Warning>
+Do not attempt to reconnect when the close code is `1008` or `1011` - these indicate permanent failures.
+</Warning>
+
+### Message Validation Errors
+
+If you send an invalid message:
+
+```json
+{
+  "error": "Invalid message format",
+  "details": "Message type is required"
+}
+```
+
+### Authorization Errors
+
+If you attempt an unauthorized action:
+
+```json
+{
+  "error": "Unauthorized",
+  "message": "You can only send typing events for your own conversations"
+}
+```
+
+## Client Library Usage
+
+### React
+
+Use the `@cossistant/react` package for React applications:
+
+```jsx
+import { RealtimeProvider, useRealtime } from '@cossistant/react';
+
+function App() {
+  const auth = {
+    kind: 'visitor',
+    visitorId: 'visitor_123',
+    publicKey: 'pk_live_...'
+  };
+
+  return (
+    <RealtimeProvider auth={auth} wsUrl="wss://api.cossistant.com/ws">
+      <ChatWidget />
+    </RealtimeProvider>
+  );
+}
+
+function ChatWidget() {
+  const { isConnected, connectionId } = useRealtime({
+    events: {
+      timelineItemCreated: (data) => {
+        console.log('New message:', data.item);
+      },
+      conversationTyping: (data) => {
+        console.log('Typing:', data.isTyping);
+      }
+    },
+    websiteId: 'web_456',
+    visitorId: 'visitor_123'
+  });
+
+  return <div>Connected: {isConnected ? 'Yes' : 'No'}</div>;
+}
+```
+
+### Core (Framework-Agnostic)
+
+Use `@cossistant/core` for vanilla JavaScript or other frameworks:
+
+```javascript
+import { RealtimeClient } from '@cossistant/core';
+
+const client = new RealtimeClient({
+  wsUrl: 'wss://api.cossistant.com/ws',
+  heartbeatIntervalMs: 15000,
+  heartbeatTimeoutMs: 45000,
+  onEvent: (event) => {
+    console.log('Received event:', event);
+  },
+  onConnect: () => {
+    console.log('Connected');
+  },
+  onDisconnect: () => {
+    console.log('Disconnected');
+  },
+  onError: (error) => {
+    console.error('Error:', error);
+  }
+});
+
+// Connect as visitor
+client.connect({
+  kind: 'visitor',
+  visitorId: 'visitor_123',
+  publicKey: 'pk_live_...'
+});
+
+// Connect as user
+client.connect({
+  kind: 'session',
+  sessionToken: 'session_token_here',
+  websiteId: 'web_456'
+});
+
+// Subscribe to events
+const unsubscribe = client.subscribe((event) => {
+  if (event.type === 'timelineItemCreated') {
+    console.log('New message:', event.payload);
+  }
+});
+
+// Send events (see Realtime Events page)
+client.send({
+  type: 'conversationTyping',
+  payload: {
+    conversationId: 'conv_123',
+    isTyping: true
+  }
+});
+
+// Enable presence tracking (updates every 30 seconds)
+client.enablePresence(30000);
+
+// Disconnect
+client.disconnect();
+
+// Cleanup
+client.destroy();
+```
+
+## Connection State
+
+Track the connection state:
+
+```javascript
+const state = client.getState();
+console.log(state.status); // 'disconnected' | 'connecting' | 'connected'
+console.log(state.connectionId); // 'conn_1234567890_abc123'
+console.log(state.error); // Error object or null
+
+// Listen for state changes
+client.onStateChange((state) => {
+  console.log('State changed:', state);
+});
+```
+
+## Next Steps
+
+- Learn about [Realtime Events](/api/realtime-events) to handle incoming events
+- Explore [Conversation API](/api/conversations) for REST operations
+- Check out [Message API](/api/messages) for sending messages

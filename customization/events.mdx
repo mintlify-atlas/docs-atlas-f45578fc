@@ -1,0 +1,546 @@
+---
+title: Events & Callbacks
+description: Listen to widget lifecycle events for analytics, logging, and custom integrations.
+---
+
+The Cossistant support widget emits events throughout its lifecycle, allowing you to track user interactions, integrate with analytics platforms, and build custom workflows.
+
+## Event Callback Props
+
+The simplest way to handle events is through callback props on the `<Support>` component:
+
+```tsx
+import { Support } from '@cossistant/react';
+
+<Support
+  onConversationStart={({ conversationId }) => {
+    analytics.track('support_conversation_started', { conversationId });
+  }}
+  onConversationEnd={({ conversationId }) => {
+    analytics.track('support_conversation_ended', { conversationId });
+  }}
+  onMessageSent={({ conversationId, message }) => {
+    analytics.track('support_message_sent', {
+      conversationId,
+      messageId: message.id,
+    });
+  }}
+  onMessageReceived={({ conversationId, message }) => {
+    analytics.track('support_message_received', {
+      conversationId,
+      messageId: message.id,
+    });
+  }}
+  onError={({ error, context }) => {
+    logger.error('Support widget error', { error, context });
+  }}
+/>
+```
+
+## Available Events
+
+### onConversationStart
+
+Fired when a new conversation is created.
+
+```tsx
+type ConversationStartEvent = {
+  conversationId: string;
+  conversation?: Conversation;
+};
+```
+
+**Example:**
+```tsx
+onConversationStart={({ conversationId, conversation }) => {
+  analytics.track('conversation_started', {
+    id: conversationId,
+    source: 'support_widget',
+    timestamp: new Date().toISOString(),
+  });
+}}
+```
+
+### onConversationEnd
+
+Fired when a conversation is closed or resolved.
+
+```tsx
+type ConversationEndEvent = {
+  conversationId: string;
+  conversation?: Conversation;
+};
+```
+
+**Example:**
+```tsx
+onConversationEnd={({ conversationId, conversation }) => {
+  analytics.track('conversation_ended', {
+    id: conversationId,
+    status: conversation?.status,
+    duration: conversation?.duration,
+  });
+}}
+```
+
+### onMessageSent
+
+Fired when the visitor sends a message.
+
+```tsx
+type MessageSentEvent = {
+  conversationId: string;
+  message: TimelineItem;
+};
+```
+
+**Example:**
+```tsx
+onMessageSent={({ conversationId, message }) => {
+  analytics.track('message_sent', {
+    conversationId,
+    messageId: message.id,
+    hasAttachments: message.attachments?.length > 0,
+    contentLength: message.content?.length,
+  });
+}}
+```
+
+### onMessageReceived
+
+Fired when a message is received from an agent (human or AI).
+
+```tsx
+type MessageReceivedEvent = {
+  conversationId: string;
+  message: TimelineItem;
+};
+```
+
+**Example:**
+```tsx
+onMessageReceived={({ conversationId, message }) => {
+  analytics.track('message_received', {
+    conversationId,
+    messageId: message.id,
+    agentType: message.sender?.type, // 'human' | 'ai'
+    agentName: message.sender?.name,
+  });
+}}
+```
+
+### onError
+
+Fired when an error occurs within the widget.
+
+```tsx
+type ErrorEvent = {
+  error: Error;
+  context?: string;
+};
+```
+
+**Example:**
+```tsx
+onError={({ error, context }) => {
+  Sentry.captureException(error, {
+    tags: { component: 'support_widget' },
+    extra: { context },
+  });
+}}
+```
+
+## Advanced Event Handling
+
+For more control, use the event hooks from within the widget context:
+
+<Tabs>
+  <Tab title="useSupportEvents">
+    Subscribe to events programmatically:
+    
+    ```tsx
+    import { useSupportEvents } from '@cossistant/react/support';
+    import { useEffect } from 'react';
+    
+    function AnalyticsTracker() {
+      const events = useSupportEvents();
+      
+      useEffect(() => {
+        if (!events) return;
+        
+        const unsubscribes = [
+          events.subscribe('conversationStart', (event) => {
+            analytics.track('conversation_started', event);
+          }),
+          events.subscribe('messageSent', (event) => {
+            analytics.track('message_sent', event);
+          }),
+          events.subscribe('messageReceived', (event) => {
+            analytics.track('message_received', event);
+          }),
+          events.subscribe('error', (event) => {
+            errorTracker.captureException(event.error, {
+              extra: { context: event.context },
+            });
+          }),
+        ];
+        
+        return () => {
+          unsubscribes.forEach((unsubscribe) => unsubscribe());
+        };
+      }, [events]);
+      
+      return null;
+    }
+    ```
+  </Tab>
+  <Tab title="useSupportEventEmitter">
+    Emit custom events from within widget components:
+    
+    ```tsx
+    import { useSupportEventEmitter } from '@cossistant/react/support';
+    
+    function CustomConversationPage({ conversationId }) {
+      const emitter = useSupportEventEmitter();
+      
+      const handleSendMessage = async (message: string) => {
+        try {
+          const sentMessage = await sendMessage(conversationId, message);
+          
+          // Emit event for listeners
+          emitter.emitMessageSent(conversationId, sentMessage);
+        } catch (error) {
+          emitter.emitError(error as Error, 'message_send_failed');
+        }
+      };
+      
+      return (
+        <div>
+          {/* Your component */}
+        </div>
+      );
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Analytics Integrations
+
+<Tabs>
+  <Tab title="Google Analytics 4">
+    ```tsx
+    import { Support } from '@cossistant/react';
+    
+    <Support
+      onConversationStart={({ conversationId }) => {
+        gtag('event', 'support_conversation_start', {
+          conversation_id: conversationId,
+        });
+      }}
+      onMessageSent={({ conversationId, message }) => {
+        gtag('event', 'support_message_sent', {
+          conversation_id: conversationId,
+          message_id: message.id,
+          has_attachments: message.attachments?.length > 0,
+        });
+      }}
+    />
+    ```
+  </Tab>
+  <Tab title="Segment">
+    ```tsx
+    import { Support } from '@cossistant/react';
+    import { analytics } from './analytics';
+    
+    <Support
+      onConversationStart={({ conversationId }) => {
+        analytics.track('Support Conversation Started', {
+          conversationId,
+        });
+      }}
+      onConversationEnd={({ conversationId, conversation }) => {
+        analytics.track('Support Conversation Ended', {
+          conversationId,
+          status: conversation?.status,
+        });
+      }}
+      onMessageSent={({ conversationId, message }) => {
+        analytics.track('Support Message Sent', {
+          conversationId,
+          messageId: message.id,
+          hasAttachments: message.attachments?.length > 0,
+        });
+      }}
+    />
+    ```
+  </Tab>
+  <Tab title="PostHog">
+    ```tsx
+    import { Support } from '@cossistant/react';
+    import { usePostHog } from 'posthog-js/react';
+    
+    function SupportWithPostHog() {
+      const posthog = usePostHog();
+      
+      return (
+        <Support
+          onConversationStart={({ conversationId }) => {
+            posthog.capture('support_conversation_started', {
+              conversationId,
+            });
+          }}
+          onMessageSent={({ conversationId }) => {
+            posthog.capture('support_message_sent', {
+              conversationId,
+            });
+          }}
+        />
+      );
+    }
+    ```
+  </Tab>
+  <Tab title="Mixpanel">
+    ```tsx
+    import { Support } from '@cossistant/react';
+    import mixpanel from 'mixpanel-browser';
+    
+    <Support
+      onConversationStart={({ conversationId }) => {
+        mixpanel.track('Support Conversation Started', {
+          conversation_id: conversationId,
+          timestamp: new Date().toISOString(),
+        });
+      }}
+      onMessageSent={({ conversationId, message }) => {
+        mixpanel.track('Support Message Sent', {
+          conversation_id: conversationId,
+          message_id: message.id,
+        });
+      }}
+    />
+    ```
+  </Tab>
+</Tabs>
+
+## Error Tracking
+
+<Tabs>
+  <Tab title="Sentry">
+    ```tsx
+    import { Support } from '@cossistant/react';
+    import * as Sentry from '@sentry/react';
+    
+    <Support
+      onError={({ error, context }) => {
+        Sentry.captureException(error, {
+          tags: {
+            component: 'support_widget',
+          },
+          extra: {
+            context,
+          },
+        });
+      }}
+    />
+    ```
+  </Tab>
+  <Tab title="Rollbar">
+    ```tsx
+    import { Support } from '@cossistant/react';
+    import Rollbar from 'rollbar';
+    
+    const rollbar = new Rollbar({
+      accessToken: process.env.ROLLBAR_TOKEN,
+      environment: process.env.NODE_ENV,
+    });
+    
+    <Support
+      onError={({ error, context }) => {
+        rollbar.error(error, {
+          component: 'support_widget',
+          context,
+        });
+      }}
+    />
+    ```
+  </Tab>
+  <Tab title="Bugsnag">
+    ```tsx
+    import { Support } from '@cossistant/react';
+    import Bugsnag from '@bugsnag/js';
+    
+    <Support
+      onError={({ error, context }) => {
+        Bugsnag.notify(error, (event) => {
+          event.addMetadata('support_widget', {
+            context,
+            timestamp: new Date().toISOString(),
+          });
+        });
+      }}
+    />
+    ```
+  </Tab>
+</Tabs>
+
+## Custom Workflows
+
+<Tabs>
+  <Tab title="Update User Profile">
+    ```tsx
+    <Support
+      onConversationStart={async ({ conversationId }) => {
+        // Update user's last interaction timestamp
+        await updateUser({
+          lastSupportInteraction: new Date(),
+          supportConversationId: conversationId,
+        });
+      }}
+    />
+    ```
+  </Tab>
+  <Tab title="Trigger Notifications">
+    ```tsx
+    <Support
+      onMessageReceived={async ({ conversationId, message }) => {
+        // Send browser notification
+        if (document.hidden && Notification.permission === 'granted') {
+          new Notification('New message from support', {
+            body: message.content,
+            icon: '/support-icon.png',
+          });
+        }
+      }}
+    />
+    ```
+  </Tab>
+  <Tab title="Save to Database">
+    ```tsx
+    <Support
+      onConversationEnd={async ({ conversationId, conversation }) => {
+        // Log conversation to internal database
+        await db.supportLogs.create({
+          conversationId,
+          userId: user.id,
+          status: conversation?.status,
+          duration: conversation?.duration,
+          endedAt: new Date(),
+        });
+      }}
+    />
+    ```
+  </Tab>
+  <Tab title="CRM Integration">
+    ```tsx
+    <Support
+      onConversationStart={async ({ conversationId }) => {
+        // Create CRM activity
+        await crm.createActivity({
+          type: 'support_conversation',
+          contactId: user.crmContactId,
+          conversationId,
+          timestamp: new Date(),
+        });
+      }}
+    />
+    ```
+  </Tab>
+</Tabs>
+
+## Event Types
+
+All event types are exported for TypeScript usage:
+
+```tsx
+import type {
+  SupportEvent,
+  SupportEventType,
+  ConversationStartEvent,
+  ConversationEndEvent,
+  MessageSentEvent,
+  MessageReceivedEvent,
+  ErrorEvent,
+  SupportEventCallbacks,
+} from '@cossistant/react/support';
+```
+
+### Type Definitions
+
+```typescript
+// Event types
+type SupportEventType =
+  | 'conversationStart'
+  | 'conversationEnd'
+  | 'messageSent'
+  | 'messageReceived'
+  | 'error';
+
+// Union of all events
+type SupportEvent =
+  | ConversationStartEvent
+  | ConversationEndEvent
+  | MessageSentEvent
+  | MessageReceivedEvent
+  | ErrorEvent;
+
+// Callback prop types
+type SupportEventCallbacks = {
+  onConversationStart?: (event: ConversationStartEvent) => void;
+  onConversationEnd?: (event: ConversationEndEvent) => void;
+  onMessageSent?: (event: MessageSentEvent) => void;
+  onMessageReceived?: (event: MessageReceivedEvent) => void;
+  onError?: (event: ErrorEvent) => void;
+};
+```
+
+## Best Practices
+
+<Accordion title="Keep callbacks lightweight">
+  Event callbacks should be fast and non-blocking. Avoid heavy computation or long-running async operations.
+  
+  ```tsx
+  // ✅ Good - quick analytics call
+  onMessageSent={({ conversationId }) => {
+    analytics.track('message_sent', { conversationId });
+  }}
+  
+  // ❌ Bad - heavy processing
+  onMessageSent={async ({ message }) => {
+    await processMessageWithAI(message);
+    await updateDatabase(message);
+    await sendEmailNotification(message);
+  }}
+  ```
+</Accordion>
+
+<Accordion title="Handle errors gracefully">
+  Always wrap event handlers in try-catch to prevent widget failures:
+  
+  ```tsx
+  onConversationStart={({ conversationId }) => {
+    try {
+      analytics.track('conversation_started', { conversationId });
+    } catch (error) {
+      console.error('Analytics tracking failed:', error);
+    }
+  }}
+  ```
+</Accordion>
+
+<Accordion title="Use event context wisely">
+  The `useSupportEvents` hook should be used inside components rendered within the Support widget tree.
+</Accordion>
+
+<Accordion title="Unsubscribe properly">
+  Always clean up event subscriptions to prevent memory leaks:
+  
+  ```tsx
+  useEffect(() => {
+    if (!events) return;
+    
+    const unsubscribe = events.subscribe('messageSent', handleMessage);
+    
+    return () => unsubscribe();
+  }, [events]);
+  ```
+</Accordion>

@@ -1,0 +1,603 @@
+---
+title: Environment Variables
+description: Complete reference for all environment variables in Cossistant
+---
+
+## Overview
+
+Cossistant uses environment variables for configuration. All variables are defined in `.env.example` and validated through `apps/api/src/env.ts`.
+
+<Warning>
+**Security Notice**
+
+Never commit `.env` files containing real credentials to version control. Always use secure secret management in production.
+</Warning>
+
+## Quick Start
+
+```bash
+cp .env.example .env
+# Edit .env with your configuration
+```
+
+## Database Configuration
+
+### DATABASE_HOST
+
+- **Type**: String
+- **Required**: Yes
+- **Description**: PostgreSQL database host
+- **Example**: `localhost`, `postgres.example.com`
+
+### DATABASE_PORT
+
+- **Type**: Number
+- **Required**: Yes
+- **Default**: `5432`
+- **Description**: PostgreSQL port
+
+### DATABASE_USERNAME
+
+- **Type**: String
+- **Required**: Yes
+- **Description**: PostgreSQL username
+- **Example**: `postgres`
+
+### DATABASE_PASSWORD
+
+- **Type**: String
+- **Required**: Yes
+- **Description**: PostgreSQL password
+- **Security**: Use a strong password and store securely
+
+### DATABASE_NAME
+
+- **Type**: String
+- **Required**: Yes
+- **Description**: PostgreSQL database name
+- **Example**: `cossistant`
+
+## Authentication
+
+### BETTER_AUTH_URL
+
+- **Type**: String (URL)
+- **Required**: Yes
+- **Description**: Base URL for authentication service
+- **Example**: `http://localhost:8787` (dev), `https://api.example.com` (prod)
+- **Note**: Must match your API deployment URL
+
+### BETTER_AUTH_SECRET
+
+- **Type**: String
+- **Required**: Yes
+- **Description**: Secret key for signing authentication tokens
+- **Security**: Generate a cryptographically random string (32+ characters)
+- **Example**: Generate with `openssl rand -base64 32`
+
+### API_KEY_SECRET
+
+- **Type**: String
+- **Required**: Yes
+- **Description**: Secret for signing and validating API keys
+- **Security**: Generate a cryptographically random string (32+ characters)
+
+## Application URLs
+
+### PUBLIC_APP_URL
+
+- **Type**: String (URL)
+- **Required**: Yes
+- **Description**: Public-facing URL of your frontend application
+- **Example**: `http://localhost:3000` (dev), `https://app.example.com` (prod)
+- **Used for**: Email links, OAuth callbacks, CORS configuration
+
+### PORT
+
+- **Type**: Number
+- **Required**: No
+- **Default**: `8787`
+- **Description**: Port for the API server to listen on
+
+## OAuth Providers
+
+### Google OAuth
+
+#### GOOGLE_CLIENT_ID
+
+- **Type**: String
+- **Required**: For Google OAuth
+- **Description**: Google OAuth 2.0 Client ID
+- **Setup**: Create at [Google Cloud Console](https://console.cloud.google.com/)
+
+#### GOOGLE_CLIENT_SECRET
+
+- **Type**: String
+- **Required**: For Google OAuth
+- **Description**: Google OAuth 2.0 Client Secret
+
+### GitHub OAuth
+
+#### GITHUB_CLIENT_ID
+
+- **Type**: String
+- **Required**: For GitHub OAuth
+- **Description**: GitHub OAuth App Client ID
+- **Setup**: Create at [GitHub Developer Settings](https://github.com/settings/developers)
+
+#### GITHUB_CLIENT_SECRET
+
+- **Type**: String
+- **Required**: For GitHub OAuth
+- **Description**: GitHub OAuth App Client Secret
+
+## Email Service (Resend)
+
+### RESEND_API_KEY
+
+- **Type**: String
+- **Required**: Yes
+- **Description**: Resend API key for sending transactional emails
+- **Setup**: Get from [Resend Dashboard](https://resend.com/api-keys)
+
+### RESEND_AUDIENCE_ID
+
+- **Type**: String
+- **Required**: Yes
+- **Description**: Resend audience ID for managing email subscribers
+
+### RESEND_WEBHOOK_SECRET
+
+- **Type**: String
+- **Required**: For webhook verification
+- **Description**: Secret for validating Resend webhook signatures
+- **Source**: `apps/api/src/env.ts:51`
+
+## Queue Service (QStash)
+
+### QSTASH_URL
+
+- **Type**: String (URL)
+- **Required**: Yes
+- **Default**: `https://qstash.upstash.io/v2`
+- **Description**: QStash API endpoint
+- **Setup**: Get from [Upstash Console](https://console.upstash.com/qstash)
+
+### QSTASH_TOKEN
+
+- **Type**: String
+- **Required**: Yes
+- **Description**: QStash API authentication token
+
+### QSTASH_CURRENT_SIGNING_KEY
+
+- **Type**: String
+- **Required**: Yes
+- **Description**: Current signing key for verifying QStash webhook signatures
+- **Security**: Used to verify incoming webhook requests
+
+### QSTASH_NEXT_SIGNING_KEY
+
+- **Type**: String
+- **Required**: Yes
+- **Description**: Next signing key for QStash key rotation
+- **Note**: Allows zero-downtime key rotation
+
+## File Storage (S3)
+
+### S3_BUCKET_NAME
+
+- **Type**: String
+- **Required**: Yes
+- **Description**: S3 bucket name for file storage
+- **Example**: `cossistant-uploads`
+
+### S3_REGION
+
+- **Type**: String
+- **Required**: Yes
+- **Description**: AWS region for S3 bucket
+- **Example**: `us-east-1`, `eu-west-1`
+
+### S3_ACCESS_KEY_ID
+
+- **Type**: String
+- **Required**: Yes
+- **Description**: AWS access key ID with S3 permissions
+
+### S3_SECRET_ACCESS_KEY
+
+- **Type**: String
+- **Required**: Yes
+- **Description**: AWS secret access key
+- **Security**: Keep secure, never commit to version control
+
+### S3_ENDPOINT
+
+- **Type**: String (URL)
+- **Required**: No
+- **Default**: AWS S3 endpoint
+- **Description**: Custom S3-compatible endpoint (MinIO, R2, DigitalOcean Spaces)
+- **Example**: `https://s3.us-east-1.amazonaws.com`, `https://minio.example.com`
+
+### S3_FORCE_PATH_STYLE
+
+- **Type**: Boolean
+- **Required**: No
+- **Default**: `false`
+- **Description**: Use path-style URLs instead of virtual-hosted-style
+- **Note**: Set to `true` for MinIO or other S3-compatible services
+
+### S3_SIGNED_URL_EXPIRATION_SECONDS
+
+- **Type**: Number
+- **Required**: No
+- **Default**: `900` (15 minutes)
+- **Description**: Expiration time for pre-signed URLs
+
+### S3_PUBLIC_BASE_URL
+
+- **Type**: String (URL)
+- **Required**: No
+- **Description**: Public base URL for accessing S3 objects directly
+- **Example**: `https://cdn.example.com`
+
+### S3_CDN_BASE_URL
+
+- **Type**: String (URL)
+- **Required**: No
+- **Description**: CDN URL prefix for serving S3 objects
+- **Example**: `https://d1234567890.cloudfront.net`
+
+## Redis Cache
+
+### REDIS_URL
+
+- **Type**: String (URL)
+- **Required**: Yes
+- **Description**: Redis connection URL
+- **Example**: `redis://localhost:6379`, `redis://user:pass@redis.example.com:6379`
+- **Note**: The `.env.example` shows `http://localhost:8079` but this should be a Redis URL
+
+## Analytics (Tinybird)
+
+### TINYBIRD_HOST
+
+- **Type**: String (URL)
+- **Required**: No
+- **Default**: `http://localhost:7181`
+- **Description**: Tinybird API endpoint
+- **Example**: `https://api.tinybird.co` (production)
+
+### TINYBIRD_TOKEN
+
+- **Type**: String
+- **Required**: No
+- **Default**: `admin` (for local development)
+- **Description**: Tinybird API authentication token
+- **Setup**: Get from Tinybird dashboard → Auth Tokens
+
+### TINYBIRD_SIGNING_KEY
+
+- **Type**: String
+- **Required**: No
+- **Description**: JWT signing key (must be workspace ADMIN token)
+- **Note**: Falls back to `TINYBIRD_TOKEN` if not set
+- **Security**: Use workspace admin token, not personal token
+
+### TINYBIRD_WORKSPACE
+
+- **Type**: String
+- **Required**: No
+- **Description**: Tinybird workspace identifier
+
+## Web Push Notifications (VAPID)
+
+### VAPID_PUBLIC_KEY
+
+- **Type**: String
+- **Required**: For push notifications
+- **Description**: Public key for Web Push VAPID authentication
+- **Generate**: Use `web-push generate-vapid-keys`
+- **Source**: `apps/api/src/env.ts:115`
+
+### VAPID_PRIVATE_KEY
+
+- **Type**: String
+- **Required**: For push notifications
+- **Description**: Private key for Web Push VAPID authentication
+- **Security**: Keep secure, never expose to client
+
+### VAPID_SUBJECT
+
+- **Type**: String
+- **Required**: For push notifications
+- **Description**: Contact email or URL for push notification service
+- **Example**: `mailto:admin@example.com`, `https://example.com`
+
+## AI Services
+
+### OPENROUTER_API_KEY
+
+- **Type**: String
+- **Required**: For AI features
+- **Default**: Empty string
+- **Description**: OpenRouter API key for accessing AI models
+- **Setup**: Get from [OpenRouter](https://openrouter.ai/)
+- **Source**: `apps/api/src/env.ts:119`
+
+### OPENROUTER_EMBEDDING_MODEL
+
+- **Type**: String
+- **Required**: No
+- **Default**: `openai/text-embedding-3-small`
+- **Description**: Embedding model to use for vector operations
+- **Source**: `apps/api/src/env.ts:143-146`
+
+### AI_AGENT_DEEP_TRACE_ENABLED
+
+- **Type**: Boolean
+- **Required**: No
+- **Default**: `false`
+- **Description**: Enable detailed tracing for AI agent execution
+- **Source**: `apps/api/src/env.ts:132-133`
+
+### AI_AGENT_TRACE_HEARTBEAT_MS
+
+- **Type**: Number
+- **Required**: No
+- **Default**: `2000`
+- **Description**: Heartbeat interval in milliseconds for agent tracing
+- **Source**: `apps/api/src/env.ts:134-137`
+
+### AI_AGENT_TRACE_PAYLOAD_MODE
+
+- **Type**: String
+- **Required**: No
+- **Default**: `raw` (development), `sanitized` (production)
+- **Description**: Control how much data is included in agent traces
+- **Options**: `raw`, `sanitized`
+- **Source**: `apps/api/src/env.ts:138-141`
+
+### AI_AGENT_ROGUE_WINDOW_SECONDS
+
+- **Type**: Number
+- **Required**: No
+- **Default**: `60`
+- **Description**: Time window for detecting rogue agent behavior
+- **Source**: `apps/api/src/env.ts:120-123`
+
+### AI_AGENT_ROGUE_MAX_PUBLIC_MESSAGES
+
+- **Type**: Number
+- **Required**: No
+- **Default**: `8`
+- **Description**: Maximum public messages before flagging as rogue
+- **Source**: `apps/api/src/env.ts:124-127`
+
+### AI_AGENT_ROGUE_PAUSE_MINUTES
+
+- **Type**: Number
+- **Required**: No
+- **Default**: `15`
+- **Description**: How long to pause a rogue agent
+- **Source**: `apps/api/src/env.ts:128-131`
+
+### FIRECRAWL_API_KEY
+
+- **Type**: String
+- **Required**: For web scraping features
+- **Default**: Empty string
+- **Description**: Firecrawl API key for web page scraping
+- **Setup**: Get from [Firecrawl](https://firecrawl.dev/)
+- **Source**: `apps/api/src/env.ts:150`
+
+## RAG Service
+
+### RAG_SERVICE_URL
+
+- **Type**: String (URL)
+- **Required**: No
+- **Default**: `http://localhost:8082`
+- **Description**: URL for the RAG (Retrieval-Augmented Generation) chunking service
+- **Source**: `apps/api/src/env.ts:148`
+
+## AI Credits and Usage
+
+### AI_CREDIT_USAGE_EVENT_NAME
+
+- **Type**: String
+- **Required**: No
+- **Default**: `ai_usage`
+- **Description**: Event name for tracking AI credit usage
+- **Source**: `apps/api/src/env.ts:82-85`
+
+### AI_CREDIT_BALANCE_CACHE_TTL_SECONDS
+
+- **Type**: Number
+- **Required**: No
+- **Default**: `15`
+- **Description**: Cache TTL for AI credit balance
+- **Source**: `apps/api/src/env.ts:86-89`
+
+### AI_CREDIT_BALANCE_STALE_TTL_SECONDS
+
+- **Type**: Number
+- **Required**: No
+- **Default**: `300`
+- **Description**: Stale-while-revalidate TTL for credit balance
+- **Source**: `apps/api/src/env.ts:90-93`
+
+### AI_CREDIT_INGEST_BACKOFF_SECONDS
+
+- **Type**: Number
+- **Required**: No
+- **Default**: `30`
+- **Description**: Backoff time before retrying credit usage ingestion
+- **Source**: `apps/api/src/env.ts:94-97`
+
+## Payment Provider (Polar)
+
+### POLAR_ACCESS_TOKEN
+
+- **Type**: String
+- **Required**: For payments
+- **Description**: Polar API access token
+- **Setup**: Get from [Polar](https://polar.sh/)
+- **Source**: `apps/api/src/env.ts:55`
+
+### POLAR_WEBHOOK_SECRET
+
+- **Type**: String
+- **Required**: For payment webhooks
+- **Description**: Secret for validating Polar webhook signatures
+- **Source**: `apps/api/src/env.ts:56`
+
+### POLAR_PRODUCT_ID_FREE_SANDBOX
+
+- **Type**: String
+- **Required**: No
+- **Default**: Empty string
+- **Description**: Polar product ID for free tier (sandbox)
+- **Source**: `apps/api/src/env.ts:57-60`
+
+### POLAR_PRODUCT_ID_FREE_PRODUCTION
+
+- **Type**: String
+- **Required**: No
+- **Default**: Empty string
+- **Description**: Polar product ID for free tier (production)
+- **Source**: `apps/api/src/env.ts:61-64`
+
+### POLAR_PRODUCT_ID_HOBBY_SANDBOX
+
+- **Type**: String
+- **Required**: No
+- **Default**: `b060ff1e-c2dd-4c02-a3e4-395d7cce84a0`
+- **Description**: Polar product ID for hobby tier (sandbox)
+- **Source**: `apps/api/src/env.ts:65-68`
+
+### POLAR_PRODUCT_ID_HOBBY_PRODUCTION
+
+- **Type**: String
+- **Required**: No
+- **Default**: `758ff687-1254-422f-9b4a-b23d39c6b47e`
+- **Description**: Polar product ID for hobby tier (production)
+- **Source**: `apps/api/src/env.ts:69-72`
+
+### POLAR_PRODUCT_ID_PRO_SANDBOX
+
+- **Type**: String
+- **Required**: No
+- **Default**: `c87aa036-2f0b-40da-9338-1a1fcc191543`
+- **Description**: Polar product ID for pro tier (sandbox)
+- **Source**: `apps/api/src/env.ts:73-76`
+
+### POLAR_PRODUCT_ID_PRO_PRODUCTION
+
+- **Type**: String
+- **Required**: No
+- **Default**: `f34bf87c-96ab-4e54-9167-c4de8527669a`
+- **Description**: Polar product ID for pro tier (production)
+- **Source**: `apps/api/src/env.ts:77-80`
+
+### POLAR_AI_USAGE_METER_ID
+
+- **Type**: String
+- **Required**: No
+- **Default**: Empty string
+- **Description**: Polar meter ID for tracking AI usage
+- **Source**: `apps/api/src/env.ts:81`
+
+## Public Keys
+
+### NEXT_PUBLIC_COSSISTANT_API_KEY
+
+- **Type**: String
+- **Required**: For frontend API access
+- **Description**: Public API key for client-side requests
+- **Note**: This is safe to expose in frontend code
+
+## Environment
+
+### NODE_ENV
+
+- **Type**: String
+- **Required**: No
+- **Default**: `development`
+- **Options**: `development`, `production`, `test`
+- **Description**: Node.js environment mode
+- **Effects**: Changes logging, error handling, and default trace modes
+
+## Environment File Template
+
+Complete `.env.example` reference:
+
+```bash
+# Database Configuration
+DATABASE_HOST=your_database_host
+DATABASE_PORT=5432
+DATABASE_USERNAME=your_database_username
+DATABASE_PASSWORD=your_database_password
+DATABASE_NAME=your_database_name
+
+# Authentication
+BETTER_AUTH_URL=http://localhost:8787
+BETTER_AUTH_SECRET=your_better_auth_secret
+
+# API Configuration
+API_KEY_SECRET=your_api_key_secret
+PUBLIC_APP_URL=http://localhost:3000
+
+# OAuth Providers
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+GITHUB_CLIENT_ID=your_github_client_id
+GITHUB_CLIENT_SECRET=your_github_client_secret
+
+# Email Service (Resend)
+RESEND_API_KEY=your_resend_api_key
+RESEND_AUDIENCE_ID=your_resend_audience_id
+
+# Queue Service (QStash)
+QSTASH_URL=https://qstash.upstash.io/v2
+QSTASH_TOKEN=your_qstash_token
+QSTASH_CURRENT_SIGNING_KEY=your_qstash_current_signing_key
+QSTASH_NEXT_SIGNING_KEY=your_qstash_next_signing_key
+
+# File Storage (S3)
+S3_BUCKET_NAME=your_s3_bucket_name
+S3_REGION=your_s3_region
+S3_ACCESS_KEY_ID=your_s3_access_key_id
+S3_SECRET_ACCESS_KEY=your_s3_secret_access_key
+S3_ENDPOINT=
+S3_FORCE_PATH_STYLE=false
+S3_SIGNED_URL_EXPIRATION_SECONDS=900
+S3_PUBLIC_BASE_URL=
+S3_CDN_BASE_URL=
+
+# Redis Cache
+REDIS_URL=redis://localhost:6379
+
+# Tinybird Local Analytics
+TINYBIRD_HOST=http://localhost:7181
+TINYBIRD_TOKEN=
+TINYBIRD_SIGNING_KEY=
+TINYBIRD_WORKSPACE=
+
+# Public Keys
+NEXT_PUBLIC_COSSISTANT_API_KEY=your_public_cossistant_key
+
+# Environment
+NODE_ENV=development
+```
+
+## Validation
+
+Environment variables are validated at startup through `apps/api/src/env.ts`. Missing required variables will cause the application to fail on startup with clear error messages.
+
+## Next Steps
+
+- Review [Self-Hosting Guide](/deployment/self-hosting) for setup instructions
+- See [Docker Deployment](/deployment/docker) for containerized setup
+- Configure external services (S3, QStash, Resend, etc.)

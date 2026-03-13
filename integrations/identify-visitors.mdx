@@ -1,0 +1,318 @@
+---
+title: "Identify Visitors"
+description: "Link anonymous visitors to known users and contacts with rich metadata"
+---
+
+## Overview
+
+The `IdentifySupportVisitor` component allows you to identify anonymous visitors and associate them with contacts in your system. Once identified, all conversations and interactions are linked to that contact, enabling personalized support experiences.
+
+## Basic Usage
+
+<CodeGroup>
+
+```tsx Next.js
+import { IdentifySupportVisitor } from "@cossistant/next";
+
+export default function DashboardLayout({ children }) {
+  const user = await getCurrentUser(); // Your auth logic
+
+  return (
+    <>
+      <IdentifySupportVisitor
+        externalId={user.id}
+        email={user.email}
+        name={user.name}
+      />
+      {children}
+    </>
+  );
+}
+```
+
+```tsx React
+import { IdentifySupportVisitor } from "@cossistant/react";
+import { useAuth } from "./auth";
+
+export function App() {
+  const { user } = useAuth();
+
+  return (
+    <>
+      {user && (
+        <IdentifySupportVisitor
+          externalId={user.id}
+          email={user.email}
+          name={user.name}
+        />
+      )}
+      {/* Rest of your app */}
+    </>
+  );
+}
+```
+
+</CodeGroup>
+
+## Props
+
+<ParamField path="externalId" type="string">
+  Your system's unique identifier for this user. Either `externalId` or `email` is required.
+</ParamField>
+
+<ParamField path="email" type="string">
+  The user's email address. Either `externalId` or `email` is required.
+</ParamField>
+
+<ParamField path="name" type="string | null">
+  The user's display name. Optional.
+</ParamField>
+
+<ParamField path="image" type="string | null">
+  URL to the user's avatar image. Optional.
+</ParamField>
+
+<ParamField path="metadata" type="VisitorMetadata | null">
+  Additional metadata about the user. See [Metadata](#metadata) below.
+</ParamField>
+
+## Identification Behavior
+
+The component intelligently handles identification:
+
+1. **No Contact Yet**: Calls the identify API to create/link a contact
+2. **Contact Exists**: Only re-identifies if name, email, or image changed
+3. **Metadata Updates**: Uses hash-based diffing to avoid redundant API calls
+
+<Note>
+  The component manages its own state to prevent duplicate identification requests. It's safe to render multiple times with the same props.
+</Note>
+
+## Metadata
+
+Attach rich metadata to contacts for personalized support:
+
+```tsx
+<IdentifySupportVisitor
+  externalId={user.id}
+  email={user.email}
+  name={user.name}
+  metadata={{
+    // Account information
+    accountTier: "premium",
+    signupDate: "2024-01-15",
+    
+    // Product usage
+    lastActiveAt: new Date().toISOString(),
+    featureFlags: ["ai-chat", "priority-support"],
+    
+    // Business context
+    company: "Acme Corp",
+    role: "Engineering Manager",
+    teamSize: 25,
+    
+    // Support context
+    lifetimeValue: 5000,
+    ticketsCount: 3,
+    avgResponseTime: "2h"
+  }}
+/>
+```
+
+### Metadata Best Practices
+
+<Accordion title="What to include in metadata">
+  - **Account details**: Plan tier, signup date, billing status
+  - **Product usage**: Features used, last active, engagement metrics
+  - **Business context**: Company, role, team size
+  - **Support history**: Previous tickets, resolution times, satisfaction scores
+  - **Technical context**: Browser, OS, app version
+</Accordion>
+
+<Accordion title="What NOT to include">
+  - **Sensitive data**: Passwords, API keys, tokens
+  - **PII**: Social security numbers, credit card details
+  - **Large objects**: Keep metadata under 50KB total
+  - **High-frequency data**: Don't update on every page view
+</Accordion>
+
+<Warning>
+  Metadata is stored as JSONB in PostgreSQL. Keep the total size under 50KB per contact.
+</Warning>
+
+## Efficient Metadata Updates
+
+Cossistant uses SHA-256 hashing to avoid redundant metadata updates:
+
+```tsx
+// ✅ Good: Only updates when metadata actually changes
+const [userMetadata, setUserMetadata] = useState({
+  plan: user.plan,
+  lastActive: user.lastActiveAt
+});
+
+<IdentifySupportVisitor
+  externalId={user.id}
+  metadata={userMetadata}
+/>
+
+// ❌ Avoid: Creates new object on every render
+<IdentifySupportVisitor
+  externalId={user.id}
+  metadata={{
+    plan: user.plan,  // New object reference every render
+    lastActive: user.lastActiveAt
+  }}
+/>
+```
+
+The component computes a hash of the metadata and compares it with the stored `metadataHash` on the contact. Updates only occur when the hash changes.
+
+## Multiple Identification Points
+
+You can render `IdentifySupportVisitor` at different levels:
+
+<Tabs>
+  <Tab title="Per-Route">
+    ```tsx
+    // app/(app)/layout.tsx
+    export default function AppLayout({ children }) {
+      const user = useUser();
+      
+      return (
+        <>
+          <IdentifySupportVisitor
+            externalId={user.id}
+            email={user.email}
+            name={user.name}
+          />
+          {children}
+        </>
+      );
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Per-Page">
+    ```tsx
+    // app/settings/page.tsx
+    export default function SettingsPage() {
+      const user = useUser();
+      
+      return (
+        <>
+          <IdentifySupportVisitor
+            externalId={user.id}
+            metadata={{ page: "settings" }}
+          />
+          <SettingsContent />
+        </>
+      );
+    }
+    ```
+  </Tab>
+</Tabs>
+
+<Info>
+  If rendered multiple times with different props, the last render wins. The component handles deduplication internally.
+</Info>
+
+## Direct API Usage
+
+You can also identify visitors using the `useVisitor` hook:
+
+```tsx
+import { useVisitor } from "@cossistant/react";
+
+function IdentifyButton() {
+  const { identify } = useVisitor();
+  
+  const handleIdentify = async () => {
+    await identify({
+      externalId: "user_123",
+      email: "user@example.com",
+      name: "John Doe"
+    });
+  };
+  
+  return <button onClick={handleIdentify}>Identify Me</button>;
+}
+```
+
+## Real-World Example
+
+<Steps>
+  <Step title="User Signs In">
+    After successful authentication, render the component:
+    
+    ```tsx
+    <IdentifySupportVisitor
+      externalId={user.id}
+      email={user.email}
+      name={user.name}
+    />
+    ```
+  </Step>
+  
+  <Step title="User Upgrades Plan">
+    Update metadata when important events occur:
+    
+    ```tsx
+    <IdentifySupportVisitor
+      externalId={user.id}
+      metadata={{
+        plan: "premium",
+        upgradedAt: new Date().toISOString()
+      }}
+    />
+    ```
+  </Step>
+  
+  <Step title="Support Agent Views Profile">
+    The agent sees the full contact profile with all metadata in their dashboard.
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Contact not being created">
+    Ensure you're providing either `externalId` or `email`:
+    
+    ```tsx
+    // ❌ Won't identify
+    <IdentifySupportVisitor name="John" />
+    
+    // ✅ Will identify
+    <IdentifySupportVisitor externalId="user_123" />
+    ```
+  </Accordion>
+  
+  <Accordion title="Metadata not updating">
+    Check that:
+    1. The metadata object is actually changing (use stable references)
+    2. You're not exceeding the 50KB metadata size limit
+    3. The visitor has been identified (has a contact)
+  </Accordion>
+  
+  <Accordion title="Multiple identification calls">
+    This is normal if you're changing the name/email/image props. The component only re-identifies when these core fields change.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Default Messages" icon="comment" href="/integrations/default-messages">
+    Customize conversation starters
+  </Card>
+  <Card title="Quick Options" icon="bolt" href="/integrations/quick-options">
+    Add suggested actions
+  </Card>
+  <Card title="Contacts API" icon="address-book" href="/api/contacts">
+    REST API for contact management
+  </Card>
+  <Card title="Visitor Metadata" icon="database" href="/concepts/contacts">
+    Learn about contact data model
+  </Card>
+</CardGroup>

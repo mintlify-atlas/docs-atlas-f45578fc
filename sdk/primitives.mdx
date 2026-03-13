@@ -1,0 +1,718 @@
+---
+title: Primitives
+description: Headless, composable UI components for building fully custom support experiences.
+icon: cube
+---
+
+## Philosophy
+
+Primitives are **headless UI components** that give you complete control over styling and behavior. Inspired by **Radix UI** and **shadcn/ui**, they follow these principles:
+
+- **Unstyled by default** - Bring your own styles
+- **Fully composable** - Build complex UIs from simple pieces
+- **Developer-owned** - Copy, modify, and extend
+- **Accessible** - Built-in ARIA patterns and keyboard navigation
+- **Type-safe** - Full TypeScript support
+
+Use primitives when you need **complete control** over the support experience.
+
+## Import
+
+Access primitives via the `Primitives` namespace:
+
+```tsx
+import { Primitives } from "@cossistant/react";
+
+<Primitives.Trigger>...</Primitives.Trigger>
+<Primitives.Window>...</Primitives.Window>
+<Primitives.Avatar>...</Primitives.Avatar>
+```
+
+Or import with an alias:
+
+```tsx
+import { Primitives as P } from "@cossistant/react";
+
+<P.Trigger>...</P.Trigger>
+```
+
+## Quick Example
+
+```tsx
+import { Primitives, useSupportConfig } from "@cossistant/react";
+
+function CustomWidget() {
+  const { isOpen, toggle } = useSupportConfig();
+
+  return (
+    <>
+      <Primitives.Trigger>
+        {({ toggle, unreadCount }) => (
+          <button onClick={toggle} type="button">
+            {unreadCount > 0 ? `Help (${unreadCount})` : "Help"}
+          </button>
+        )}
+      </Primitives.Trigger>
+
+      <Primitives.Window>
+        {({ isOpen, close }) => (
+          isOpen && (
+            <div className="fixed bottom-20 right-4 w-96 bg-white rounded-lg shadow-xl">
+              <button onClick={close} type="button">×</button>
+              <p>Custom support content</p>
+            </div>
+          )
+        )}
+      </Primitives.Window>
+    </>
+  );
+}
+```
+
+## Core Components
+
+### Trigger
+
+Trigger button with widget state. Can be placed anywhere in the DOM.
+
+```tsx
+<Primitives.Trigger>
+  {({ isOpen, unreadCount, isTyping, toggle }) => (
+    <button onClick={toggle} type="button">
+      {isOpen ? "×" : "💬"}
+      {unreadCount > 0 && <span>{unreadCount}</span>}
+      {isTyping && <span className="animate-pulse">•••</span>}
+    </button>
+  )}
+</Primitives.Trigger>
+```
+
+**Render Props:**
+
+- `isOpen: boolean` - Whether widget is open
+- `unreadCount: number` - Number of unread messages
+- `isTyping: boolean` - Whether someone is typing
+- `toggle: () => void` - Toggle function
+
+**Props:**
+
+- `children` - Render function or static content
+- `asChild` - Pass props to child element
+- `className` - CSS classes
+
+### Window
+
+Dialog container with open/close state and escape key handling.
+
+```tsx
+<Primitives.Window>
+  {({ isOpen, close }) => (
+    isOpen && (
+      <div className="fixed inset-0 bg-black/50">
+        <div className="bg-white p-4 rounded">
+          <button onClick={close} type="button">Close</button>
+          <p>Window content</p>
+        </div>
+      </div>
+    )
+  )}
+</Primitives.Window>
+```
+
+**Render Props:**
+
+- `isOpen: boolean` - Whether window is open
+- `close: () => void` - Close function
+
+### Button
+
+Accessible button primitive with variants.
+
+```tsx
+<Primitives.Button 
+  onClick={handleClick}
+  variant="primary"
+  size="md"
+>
+  Send Message
+</Primitives.Button>
+```
+
+**Props:**
+
+- `variant` - "primary" | "secondary" | "ghost"
+- `size` - "sm" | "md" | "lg"
+- `disabled` - Disabled state
+- All standard button HTML attributes
+
+## Timeline & Messages
+
+### ConversationTimeline
+
+Message timeline container with automatic scrolling and loading states.
+
+```tsx
+<Primitives.ConversationTimeline>
+  <Primitives.ConversationTimelineLoading />
+  <Primitives.ConversationTimelineEmpty />
+  <Primitives.ConversationTimelineContainer>
+    {messages.map(msg => (
+      <Primitives.TimelineItem key={msg.id} item={msg} />
+    ))}
+  </Primitives.ConversationTimelineContainer>
+</Primitives.ConversationTimeline>
+```
+
+### TimelineItem
+
+Individual message or event in the timeline.
+
+```tsx
+<Primitives.TimelineItem>
+  <Primitives.TimelineItemContent>
+    {message.text}
+  </Primitives.TimelineItemContent>
+  <Primitives.TimelineItemTimestamp>
+    {message.createdAt}
+  </Primitives.TimelineItemTimestamp>
+</Primitives.TimelineItem>
+```
+
+**Sub-components:**
+
+- `TimelineItemContent` - Message content with markdown rendering
+- `TimelineItemTimestamp` - Formatted timestamp
+- `TimelineItemAttachments` - File/image attachments
+- `TimelineItemFiles` - File attachments only
+- `TimelineItemImages` - Image attachments only
+
+### TimelineItemGroup
+
+Group consecutive messages by the same sender.
+
+```tsx
+<Primitives.TimelineItemGroup>
+  <Primitives.TimelineItemGroupHeader>
+    <Primitives.TimelineItemGroupAvatar src={user.image} alt={user.name} />
+    <span>{user.name}</span>
+  </Primitives.TimelineItemGroupHeader>
+  <Primitives.TimelineItemGroupContent>
+    {messages.map(msg => (
+      <Primitives.TimelineItem key={msg.id} item={msg} />
+    ))}
+  </Primitives.TimelineItemGroupContent>
+  <Primitives.TimelineItemGroupReadIndicator />
+  <Primitives.TimelineItemGroupSeenIndicator />
+</Primitives.TimelineItemGroup>
+```
+
+### TimelineCodeBlock
+
+Syntax-highlighted code block in messages.
+
+```tsx
+<Primitives.TimelineCodeBlock
+  code={code}
+  language="typescript"
+/>
+```
+
+### TimelineCommandBlock
+
+Terminal command block with copy functionality.
+
+```tsx
+<Primitives.TimelineCommandBlock
+  command="npm install @cossistant/react"
+  packageManager="npm"
+/>
+```
+
+## Input Components
+
+### MultimodalInput
+
+Rich text input with file upload support.
+
+```tsx
+<Primitives.MultimodalInput
+  value={text}
+  onChange={setText}
+  onSubmit={handleSend}
+  placeholder="Type a message..."
+  maxLength={5000}
+/>
+```
+
+**Props:**
+
+- `value` - Current text value
+- `onChange` - Text change handler
+- `onSubmit` - Submit handler
+- `placeholder` - Placeholder text
+- `maxLength` - Maximum character count
+- `disabled` - Disabled state
+- `autoFocus` - Auto focus on mount
+
+### FileInput
+
+File upload component with drag-and-drop.
+
+```tsx
+<Primitives.FileInput
+  onFilesSelected={handleFiles}
+  accept="image/*,application/pdf"
+  maxFiles={5}
+  maxSize={10 * 1024 * 1024} // 10MB
+/>
+```
+
+**Props:**
+
+- `onFilesSelected` - File selection handler
+- `accept` - Accepted file types
+- `maxFiles` - Maximum number of files
+- `maxSize` - Maximum file size in bytes
+- `multiple` - Allow multiple files
+
+### Input
+
+Basic text input primitive.
+
+```tsx
+<Primitives.Input
+  value={value}
+  onChange={(e) => setValue(e.target.value)}
+  placeholder="Enter text..."
+/>
+```
+
+## Visual Components
+
+### Avatar
+
+User avatar with image and fallback.
+
+```tsx
+<Primitives.Avatar>
+  <Primitives.AvatarImage src={user.image} alt={user.name} />
+  <Primitives.AvatarFallback>{user.initials}</Primitives.AvatarFallback>
+</Primitives.Avatar>
+```
+
+**Props:**
+
+- `size` - "sm" | "md" | "lg" | "xl"
+- `className` - CSS classes
+
+### TypingIndicator
+
+Animated typing indicator showing who's typing.
+
+```tsx
+<Primitives.TypingIndicator
+  participants={[
+    { id: "1", name: "Alice", type: "user" },
+    { id: "2", name: "AI Assistant", type: "ai" }
+  ]}
+/>
+```
+
+**Props:**
+
+- `participants` - Array of typing participants
+  - `id: string` - Participant ID
+  - `name: string` - Display name
+  - `type: "user" | "ai" | "visitor"` - Participant type
+
+### DaySeparator
+
+Date separator for timeline.
+
+```tsx
+<Primitives.DaySeparator date={date}>
+  {({ formattedDate }) => (
+    <>
+      <Primitives.DaySeparatorLine />
+      <Primitives.DaySeparatorLabel>
+        {formattedDate}
+      </Primitives.DaySeparatorLabel>
+      <Primitives.DaySeparatorLine />
+    </>
+  )}
+</Primitives.DaySeparator>
+```
+
+## Feedback Components
+
+### FeedbackRatingSelector
+
+Star rating selector for feedback.
+
+```tsx
+<Primitives.FeedbackRatingSelector
+  value={rating}
+  onChange={setRating}
+  size="md"
+  max={5}
+/>
+```
+
+### FeedbackCommentInput
+
+Text area for feedback comments.
+
+```tsx
+<Primitives.FeedbackCommentInput
+  value={comment}
+  onChange={setComment}
+  placeholder="Tell us more..."
+  maxLength={500}
+/>
+```
+
+### FeedbackTopicSelect
+
+Dropdown for selecting feedback topic.
+
+```tsx
+<Primitives.FeedbackTopicSelect
+  value={topic}
+  onChange={setTopic}
+  topics={["Bug", "Feature Request", "General"]}
+/>
+```
+
+## Configuration
+
+### Config
+
+Configure widget behavior per route or page.
+
+```tsx
+<Primitives.Config
+  quickOptions={["Pricing", "Features", "Support"]}
+  defaultMessages={[
+    { content: "Hi! How can we help?", senderType: "ai" }
+  ]}
+/>
+```
+
+**Props:**
+
+- `quickOptions` - Quick reply options
+- `defaultMessages` - Welcome messages
+
+### Router
+
+Page router for custom navigation.
+
+```tsx
+<Primitives.Router
+  customPages={[
+    { name: "FAQ", component: FAQPage }
+  ]}
+>
+  {children}
+</Primitives.Router>
+```
+
+## Utility Components
+
+### ToolActivityRow
+
+Display tool/action activity in timeline.
+
+```tsx
+<Primitives.ToolActivityRow
+  state="in-progress"
+  tone="info"
+  icon={<SearchIcon />}
+  title="Searching knowledge base"
+  description="Looking for relevant articles..."
+/>
+```
+
+**Props:**
+
+- `state` - "idle" | "in-progress" | "success" | "error"
+- `tone` - "info" | "success" | "warning" | "error"
+- `icon` - React element
+- `title` - Activity title
+- `description` - Activity description
+
+## Building from Scratch
+
+Create a completely custom support experience:
+
+```tsx
+import { 
+  Primitives, 
+  SupportProvider, 
+  useSupportConfig 
+} from "@cossistant/react";
+
+function CustomSupport() {
+  const { isOpen } = useSupportConfig();
+
+  return (
+    <>
+      {/* Custom trigger */}
+      <Primitives.Trigger>
+        {({ toggle, unreadCount }) => (
+          <button
+            onClick={toggle}
+            className="fixed bottom-4 right-4 rounded-full bg-blue-600 p-4 text-white"
+            type="button"
+          >
+            💬 {unreadCount > 0 && `(${unreadCount})`}
+          </button>
+        )}
+      </Primitives.Trigger>
+
+      {/* Custom window */}
+      <Primitives.Window>
+        {({ close }) => (
+          isOpen && (
+            <div className="fixed bottom-20 right-4 w-96 h-[500px] bg-white rounded-lg shadow-xl border">
+              <header className="flex items-center justify-between p-4 border-b">
+                <h2>Support</h2>
+                <button onClick={close} type="button">×</button>
+              </header>
+              <div className="p-4">
+                <p>Your custom support content here</p>
+              </div>
+            </div>
+          )
+        )}
+      </Primitives.Window>
+    </>
+  );
+}
+
+// Wrap with provider
+export function App() {
+  return (
+    <SupportProvider publicKey="pk_xxx">
+      <CustomSupport />
+    </SupportProvider>
+  );
+}
+```
+
+## Custom Message Timeline
+
+Build a custom message timeline:
+
+```tsx
+import { 
+  Primitives,
+  useConversationTimeline 
+} from "@cossistant/react";
+
+function CustomTimeline({ conversationId, items, visitorId }) {
+  const { groupedMessages, typingParticipants } = useConversationTimeline({
+    conversationId,
+    items,
+    currentVisitorId: visitorId,
+  });
+
+  return (
+    <Primitives.ConversationTimeline>
+      <Primitives.ConversationTimelineContainer>
+        {groupedMessages.map((group) => (
+          <Primitives.TimelineItemGroup key={group.id}>
+            <Primitives.TimelineItemGroupHeader>
+              <Primitives.Avatar>
+                <Primitives.AvatarImage src={group.avatar} />
+                <Primitives.AvatarFallback>
+                  {group.initials}
+                </Primitives.AvatarFallback>
+              </Primitives.Avatar>
+              <span>{group.senderName}</span>
+            </Primitives.TimelineItemGroupHeader>
+
+            <Primitives.TimelineItemGroupContent>
+              {group.items.map((item) => (
+                <Primitives.TimelineItem key={item.id}>
+                  <Primitives.TimelineItemContent>
+                    {item.text}
+                  </Primitives.TimelineItemContent>
+                  <Primitives.TimelineItemTimestamp>
+                    {item.createdAt}
+                  </Primitives.TimelineItemTimestamp>
+                  {item.parts && (
+                    <Primitives.TimelineItemAttachments parts={item.parts} />
+                  )}
+                </Primitives.TimelineItem>
+              ))}
+            </Primitives.TimelineItemGroupContent>
+          </Primitives.TimelineItemGroup>
+        ))}
+
+        {typingParticipants.length > 0 && (
+          <Primitives.TypingIndicator participants={typingParticipants} />
+        )}
+      </Primitives.ConversationTimelineContainer>
+    </Primitives.ConversationTimeline>
+  );
+}
+```
+
+## Custom Input Form
+
+Build a custom message composer:
+
+```tsx
+import { 
+  Primitives,
+  useMessageComposer 
+} from "@cossistant/react";
+
+function CustomComposer({ conversationId }) {
+  const composer = useMessageComposer({ conversationId });
+
+  return (
+    <form 
+      onSubmit={(e) => {
+        e.preventDefault();
+        composer.submit();
+      }}
+      className="border-t p-4"
+    >
+      <div className="flex gap-2">
+        <Primitives.MultimodalInput
+          value={composer.message}
+          onChange={composer.setMessage}
+          placeholder="Type a message..."
+          className="flex-1"
+        />
+        
+        <Primitives.FileInput
+          onFilesSelected={composer.addFiles}
+          accept="image/*,.pdf,.doc,.docx"
+        />
+
+        <Primitives.Button
+          type="submit"
+          disabled={!composer.canSubmit || composer.isSubmitting}
+        >
+          {composer.isSubmitting ? "Sending..." : "Send"}
+        </Primitives.Button>
+      </div>
+
+      {composer.attachments.length > 0 && (
+        <div className="mt-2 flex gap-2">
+          {composer.attachments.map((file) => (
+            <div key={file.name} className="flex items-center gap-2 bg-gray-100 px-2 py-1 rounded">
+              <span className="text-sm">{file.name}</span>
+              <button
+                type="button"
+                onClick={() => composer.removeFile(file.name)}
+                className="text-red-500"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </form>
+  );
+}
+```
+
+## Available Primitives
+
+### Core
+- `Trigger` - Widget trigger button
+- `Window` - Dialog container
+- `Button` - Accessible button
+- `Input` - Text input
+
+### Timeline
+- `ConversationTimeline` - Timeline container
+- `ConversationTimelineContainer` - Scrollable content
+- `ConversationTimelineEmpty` - Empty state
+- `ConversationTimelineLoading` - Loading state
+- `TimelineItem` - Message item
+- `TimelineItemContent` - Message content
+- `TimelineItemTimestamp` - Timestamp
+- `TimelineItemAttachments` - Attachments
+- `TimelineItemGroup` - Message group
+- `TimelineItemGroupHeader` - Group header
+- `TimelineItemGroupContent` - Group content
+- `TimelineItemGroupAvatar` - Group avatar
+- `TimelineItemGroupReadIndicator` - Read indicator
+- `TimelineItemGroupSeenIndicator` - Seen indicator
+- `TimelineCodeBlock` - Code block
+- `TimelineCommandBlock` - Command block
+
+### Input
+- `MultimodalInput` - Rich text input
+- `FileInput` - File upload
+- `FeedbackCommentInput` - Feedback comment
+- `FeedbackRatingSelector` - Star rating
+- `FeedbackTopicSelect` - Topic selector
+
+### Visual
+- `Avatar` - User avatar
+- `AvatarImage` - Avatar image
+- `AvatarFallback` - Avatar fallback
+- `TypingIndicator` - Typing indicator
+- `DaySeparator` - Date separator
+- `DaySeparatorLabel` - Date label
+- `DaySeparatorLine` - Separator line
+
+### Utility
+- `Config` - Widget configuration
+- `Router` - Page router
+- `ToolActivityRow` - Tool activity display
+
+## Hooks for Primitives
+
+Use these hooks alongside primitives:
+
+```tsx
+import {
+  useSupportConfig,
+  useSupportNavigation,
+  useSupport,
+  useVisitor,
+  useConversationTimeline,
+  useMessageComposer,
+} from "@cossistant/react";
+```
+
+See the [Hooks](/sdk/hooks) page for full documentation.
+
+## Why Primitives?
+
+**Full control.** No opinionated styles or structure—build exactly what you need.
+
+**Type-safe.** All primitives are fully typed with TypeScript.
+
+**Composable.** Mix and match primitives to create unique experiences.
+
+**Accessible.** Built-in ARIA patterns and keyboard navigation.
+
+**Framework-agnostic patterns.** Works in any React environment.
+
+Use the `<Support />` component for quick setup. Use primitives when you need **complete freedom**.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Hooks" icon="code" href="/sdk/hooks">
+    Explore all React hooks
+  </Card>
+  <Card title="Support Component" icon="message" href="/sdk/support-component">
+    Learn about the Support component
+  </Card>
+  <Card title="Customization" icon="palette" href="/customization">
+    Theme and style your widget
+  </Card>
+  <Card title="Examples" icon="book" href="https://github.com/cossistantcom/cossistant/tree/main/examples">
+    View example implementations
+  </Card>
+</CardGroup>
